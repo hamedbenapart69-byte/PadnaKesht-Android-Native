@@ -18,6 +18,9 @@ abstract class BusinessDao {
     @Insert
     abstract suspend fun insertCustomer(customer: CustomerEntity): Long
 
+    @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
+    abstract suspend fun getCustomer(customerId: Long): CustomerEntity?
+
     @Query("SELECT * FROM products ORDER BY name COLLATE NOCASE")
     abstract fun observeProducts(): Flow<List<ProductEntity>>
 
