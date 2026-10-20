@@ -48,6 +48,7 @@ import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.sqlcipher.database.SupportFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
+import com.padnakasht.nativeapp.domain.OfflineInsights
 import com.padnakasht.nativeapp.domain.TransactionKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -164,7 +165,7 @@ class MainActivity : FragmentActivity() {
                                 )
                                 OutlinedTextField(
                                     value = category, onValueChange = { category = it; error = null },
-                                    modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی") }, singleLine = true
+                                    modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی (اختیاری)") }, singleLine = true
                                 )
                                 OutlinedTextField(
                                     value = note, onValueChange = { note = it },
@@ -176,10 +177,9 @@ class MainActivity : FragmentActivity() {
                                         val parsed = amount.toLongOrNull()
                                         if (parsed == null || parsed <= 0L) {
                                             error = "مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد."
-                                        } else if (category.isBlank()) {
-                                            error = "دسته‌بندی را وارد کنید."
                                         } else {
-                                            vm.addTransaction(parsed, kind, category.trim(), note.trim())
+                                            val finalCategory = category.trim().ifBlank { OfflineInsights.categorize(note) }
+                                            vm.addTransaction(parsed, kind, finalCategory, note.trim())
                                             amount = ""; category = ""; note = ""; error = null
                                         }
                                     }
