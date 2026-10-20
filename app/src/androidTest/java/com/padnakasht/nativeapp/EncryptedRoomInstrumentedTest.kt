@@ -25,7 +25,7 @@ class EncryptedRoomInstrumentedTest {
         file.delete()
         val passphrase = DatabasePassphraseProvider.getOrCreate(context)
         val db = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .openHelperFactory(SupportOpenHelperFactory(passphrase, null, true))
+            .openHelperFactory(SupportOpenHelperFactory(passphrase))
             .build()
         try {
             db.transactionDao().insert(
