@@ -69,6 +69,8 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     fun observePaymentsTotal(invoiceId: Long) = dao.observePaymentsTotal(invoiceId)
 
+    fun observePayments(invoiceId: Long) = dao.observePayments(invoiceId)
+
     fun observeCustomerBalance(customerId: Long) = dao.observeCustomerBalance(customerId)
 
     suspend fun outstandingBalance(invoiceId: Long): Long {

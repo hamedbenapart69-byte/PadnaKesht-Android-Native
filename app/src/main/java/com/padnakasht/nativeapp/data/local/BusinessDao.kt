@@ -63,6 +63,9 @@ abstract class BusinessDao {
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payments WHERE invoiceId = :invoiceId")
     abstract fun observePaymentsTotal(invoiceId: Long): Flow<Long>
 
+    @Query("SELECT * FROM payments WHERE invoiceId = :invoiceId ORDER BY paidAtEpochDay DESC, id DESC")
+    abstract fun observePayments(invoiceId: Long): Flow<List<PaymentEntity>>
+
     @Query("UPDATE invoices SET status = 'CANCELLED' WHERE id = :invoiceId AND status = 'POSTED'")
     abstract suspend fun markInvoiceCancelled(invoiceId: Long): Int
 

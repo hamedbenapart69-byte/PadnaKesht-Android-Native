@@ -193,11 +193,18 @@ fun BusinessManagement(repository: BusinessRepository) {
 @Composable
 private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessRepository) {
     val paid by repository.observePaymentsTotal(invoice.id).collectAsState(initial = 0L)
+    val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
     val balance = (invoice.totalMinor - paid).coerceAtLeast(0L)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • جمع ${invoice.totalMinor}")
             Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${balance}")
+            if (payments.isNotEmpty()) {
+                Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
+                payments.forEach { payment ->
+                    Text("دریافت ${payment.amountMinor} • روز ثبت ${payment.paidAtEpochDay} • ${payment.method}")
+                }
+            }
         }
     }
 }
