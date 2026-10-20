@@ -42,6 +42,7 @@ object DatabasePassphraseProvider {
             "Encrypted database key metadata is incomplete; refusing to replace it"
         }
 
+        check(!hasWrappingKey()) { "Encrypted database key metadata is missing; refusing to replace an existing key" }
         val passphrase = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
@@ -52,6 +53,11 @@ object DatabasePassphraseProvider {
             .putString(VALUE_KEY, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
             .commit()) { "Unable to persist encrypted database key" }
         return passphrase
+    }
+
+    private fun hasWrappingKey(): Boolean = KeyStore.getInstance(ANDROID_KEYSTORE).run {
+        load(null)
+        containsAlias(KEY_ALIAS)
     }
 
     private fun getExistingKey(): SecretKey {
