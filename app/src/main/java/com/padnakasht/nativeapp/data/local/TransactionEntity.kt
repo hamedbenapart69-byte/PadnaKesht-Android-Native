@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp.data.local
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.TransactionKind
@@ -13,7 +14,7 @@ data class TransactionEntity(
     val category: String,
     val note: String,
     val occurredAtEpochDay: Long,
-    val status: String = "POSTED"
+    @ColumnInfo(defaultValue = "'POSTED'") val status: String = "POSTED"
 ) {
     fun toDomain() = FinancialTransaction(
         id = id,
