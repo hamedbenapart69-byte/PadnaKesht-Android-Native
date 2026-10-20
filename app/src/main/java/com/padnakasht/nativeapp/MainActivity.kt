@@ -40,9 +40,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.padnakasht.nativeapp.data.TransactionRepository
+import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
+import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
@@ -92,6 +94,7 @@ class MainActivity : FragmentActivity() {
             .openHelperFactory(factory)
             .build()
         val repository = TransactionRepository(db.transactionDao())
+        val businessRepository = BusinessRepository(db.businessDao())
         setContent {
             val darkTheme = isSystemInDarkTheme()
             MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
@@ -198,6 +201,7 @@ class MainActivity : FragmentActivity() {
                             }
                         }
                         if (showCharts) item { FinancialCharts(transactions) }
+                        item { BusinessManagement(businessRepository) }
                         items(transactions, key = { it.id }) { item ->
                             Card(Modifier.fillMaxWidth()) {
                                 Row(
