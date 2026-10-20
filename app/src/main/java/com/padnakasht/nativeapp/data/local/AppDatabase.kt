@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InvoiceEntity::class,
         InvoiceLineEntity::class,
         PaymentEntity::class,
-        StockMovementEntity::class
+        StockMovementEntity::class,
+        SalesReturnEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +24,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS sales_returns (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, invoiceId INTEGER NOT NULL, invoiceLineId INTEGER NOT NULL, productId INTEGER NOT NULL, quantity INTEGER NOT NULL, creditAmountMinor INTEGER NOT NULL, reason TEXT NOT NULL, returnedAtEpochDay INTEGER NOT NULL, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(invoiceLineId) REFERENCES invoice_lines(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(productId) REFERENCES products(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sales_returns_invoiceId ON sales_returns(invoiceId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sales_returns_invoiceLineId ON sales_returns(invoiceLineId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sales_returns_productId ON sales_returns(productId)")
+            }
+        }
+
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT 'عمومی'")

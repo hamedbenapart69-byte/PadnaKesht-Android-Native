@@ -33,6 +33,32 @@ data class ProductEntity(
 }
 
 @Entity(
+    tableName = "sales_returns",
+    foreignKeys = [
+        ForeignKey(entity = InvoiceEntity::class, parentColumns = ["id"], childColumns = ["invoiceId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = InvoiceLineEntity::class, parentColumns = ["id"], childColumns = ["invoiceLineId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index(value = ["invoiceId"]), Index(value = ["invoiceLineId"]), Index(value = ["productId"])]
+)
+data class SalesReturnEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val invoiceId: Long,
+    val invoiceLineId: Long,
+    val productId: Long,
+    val quantity: Long,
+    val creditAmountMinor: Long,
+    val reason: String,
+    val returnedAtEpochDay: Long
+) {
+    init {
+        require(quantity > 0)
+        require(creditAmountMinor >= 0)
+        require(reason.isNotBlank())
+    }
+}
+
+@Entity(
     tableName = "invoices",
     foreignKeys = [ForeignKey(
         entity = CustomerEntity::class,

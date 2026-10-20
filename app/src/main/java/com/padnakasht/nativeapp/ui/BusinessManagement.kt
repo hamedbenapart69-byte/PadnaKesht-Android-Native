@@ -59,6 +59,10 @@ fun BusinessManagement(repository: BusinessRepository) {
     var invoiceDueDate by remember { mutableStateOf("") }
     var paymentInvoice by remember { mutableStateOf("") }
     var paymentAmount by remember { mutableStateOf("") }
+    var returnInvoiceId by remember { mutableStateOf("") }
+    var returnLineId by remember { mutableStateOf<Long?>(null) }
+    var returnQuantity by remember { mutableStateOf("1") }
+    var returnReason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     val cart = remember { mutableStateListOf<DraftLine>() }
@@ -258,6 +262,55 @@ fun BusinessManagement(repository: BusinessRepository) {
         invoices.forEach { invoice ->
             InvoiceBalanceRow(invoice, repository)
         }
+
+        Text("ثبت برگشت کالا", style = MaterialTheme.typography.titleMedium)
+        Text("برگشت به‌صورت مستقل ثبت می‌شود؛ موجودی افزایش می‌یابد و اعتبار مشتری از مانده فاکتور کسر می‌شود.")
+        OutlinedTextField(
+            returnInvoiceId,
+            { returnInvoiceId = it.filter(Char::isDigit); returnLineId = null },
+            Modifier.fillMaxWidth(),
+            label = { Text("شناسه فاکتور برگشت") },
+            singleLine = true
+        )
+        val selectedReturnInvoice = invoices.firstOrNull { it.id == returnInvoiceId.toLongOrNull() }
+        if (selectedReturnInvoice != null) {
+            ReturnLinePicker(
+                invoiceId = selectedReturnInvoice.id,
+                repository = repository,
+                products = products,
+                selectedLineId = returnLineId,
+                onSelect = { returnLineId = it }
+            )
+        }
+        OutlinedTextField(returnQuantity, { returnQuantity = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد برگشتی") }, singleLine = true)
+        OutlinedTextField(returnReason, { returnReason = it; message = null }, Modifier.fillMaxWidth(), label = { Text("علت برگشت") }, singleLine = true)
+        Button(
+            onClick = {
+                val invoiceId = returnInvoiceId.toLongOrNull()
+                val lineId = returnLineId
+                val qty = returnQuantity.toLongOrNull()
+                if (invoiceId == null || lineId == null || qty == null || qty <= 0 || returnReason.isBlank()) {
+                    message = "فاکتور، قلم، تعداد معتبر و علت برگشت را وارد کنید."
+                } else if (isSaving) {
+                    message = "عملیات قبلی هنوز در حال انجام است."
+                } else {
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.recordReturn(invoiceId, lineId, qty, returnReason) }
+                            .onSuccess {
+                                returnQuantity = "1"
+                                returnReason = ""
+                                returnLineId = null
+                                message = "برگشت ثبت شد؛ موجودی و اعتبار مشتری به‌روزرسانی شد."
+                            }
+                            .onFailure { message = "برگشت ثبت نشد؛ تعداد باقی‌مانده، فاکتور و علت را بررسی کنید." }
+                            .also { isSaving = false }
+                    }
+                }
+            },
+            enabled = selectedReturnInvoice != null && returnLineId != null && returnQuantity.toLongOrNull()?.let { it > 0 } == true && returnReason.isNotBlank() && !isSaving,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("ثبت برگشت کالا") }
         if (message != null) Text(message!!, color = if (message!!.contains("ناموفق") || message!!.contains("نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     }
 }
@@ -266,14 +319,28 @@ fun BusinessManagement(repository: BusinessRepository) {
 private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessRepository) {
     val paid by repository.observePaymentsTotal(invoice.id).collectAsState(initial = 0L)
     val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
-    val balance = (invoice.totalMinor - paid).coerceAtLeast(0L)
+    val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
+    val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • مبلغ نهایی ${invoice.totalMinor}")
             if (invoice.discountMinor > 0L) Text("تخفیف: ${invoice.discountMinor}")
             invoice.dueAtEpochDay?.let { Text("سررسید: ${LocalDate.ofEpochDay(it)}") }
             val overdue = invoice.status == "POSTED" && balance > 0L && invoice.dueAtEpochDay?.let { it < LocalDate.now().toEpochDay() } == true
-            Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (overdue) "سررسیدگذشته" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${if (invoice.status == "CANCELLED") 0L else balance}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            val statusLabel = when {
+                invoice.status == "CANCELLED" -> "لغو شده"
+                balance < 0L -> "بستانکار مشتری"
+                overdue -> "سررسیدگذشته"
+                balance == 0L -> "تسویه"
+                else -> "بدهکار"
+            }
+            Text("وضعیت: $statusLabel • ${if (invoice.status == "CANCELLED") 0L else kotlin.math.abs(balance)}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            if (returns.isNotEmpty()) {
+                Text("سوابق برگشت کالا", style = MaterialTheme.typography.labelLarge)
+                returns.forEach { returned ->
+                    Text("برگشت ${returned.quantity} عدد • اعتبار ${returned.creditAmountMinor} • ${returned.reason}")
+                }
+            }
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
@@ -284,6 +351,28 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     }
 }
 
+
+@Composable
+private fun ReturnLinePicker(
+    invoiceId: Long,
+    repository: BusinessRepository,
+    products: List<com.padnakasht.nativeapp.data.local.ProductEntity>,
+    selectedLineId: Long?,
+    onSelect: (Long) -> Unit
+) {
+    val lines by repository.observeInvoiceLines(invoiceId).collectAsState(initial = emptyList())
+    Text("قلم فاکتور را انتخاب کنید", style = MaterialTheme.typography.labelLarge)
+    if (lines.isEmpty()) {
+        Text("برای این فاکتور قلمی پیدا نشد.", style = MaterialTheme.typography.bodySmall)
+    } else {
+        lines.forEach { line ->
+            val productName = products.firstOrNull { it.id == line.productId }?.name ?: "کالای #${line.productId}"
+            TextButton(onClick = { onSelect(line.id) }, modifier = Modifier.fillMaxWidth()) {
+                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${line.quantity} • شناسه قلم: ${line.id}")
+            }
+        }
+    }
+}
 
 @Composable
 private fun CustomerBalanceRow(

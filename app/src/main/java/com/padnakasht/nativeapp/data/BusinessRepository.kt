@@ -7,6 +7,7 @@ import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
 import com.padnakasht.nativeapp.data.local.StockMovementEntity
+import com.padnakasht.nativeapp.data.local.SalesReturnEntity
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -95,6 +96,13 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId)
 
+    fun observeInvoiceLines(invoiceId: Long) = dao.observeInvoiceLines(invoiceId)
+
+    fun observeSalesReturns(invoiceId: Long) = dao.observeSalesReturns(invoiceId)
+
+    suspend fun recordReturn(invoiceId: Long, invoiceLineId: Long, quantity: Long, reason: String): Long =
+        dao.recordReturn(invoiceId, invoiceLineId, quantity, reason, LocalDate.now().toEpochDay())
+
     suspend fun adjustStock(productId: Long, quantityDelta: Long, reason: String): Boolean =
         dao.adjustStock(productId, quantityDelta, reason, LocalDate.now().toEpochDay())
 
@@ -106,6 +114,6 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun outstandingBalance(invoiceId: Long): Long {
         val invoice = dao.getInvoice(invoiceId) ?: error("Invoice not found")
-        return (invoice.totalMinor - dao.getPaymentsTotal(invoiceId)).coerceAtLeast(0L)
+        return Math.subtractExact(Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)), dao.getReturnsTotal(invoiceId))
     }
 }

@@ -6,6 +6,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Dao
 abstract class BusinessDao {
@@ -21,7 +23,7 @@ abstract class BusinessDao {
     @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
     abstract suspend fun getCustomer(customerId: Long): CustomerEntity?
 
-    @Query("SELECT COALESCE(SUM(CASE WHEN invoices.status = 'POSTED' THEN invoices.totalMinor - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id) ELSE 0 END), 0) FROM invoices WHERE invoices.customerId = :customerId")
+    @Query("SELECT COALESCE(SUM(CASE WHEN invoices.status = 'POSTED' THEN invoices.totalMinor - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id) - (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0) FROM sales_returns WHERE sales_returns.invoiceId = invoices.id) ELSE 0 END), 0) FROM invoices WHERE invoices.customerId = :customerId")
     abstract fun observeCustomerBalance(customerId: Long): Flow<Long>
 
     @Query("SELECT * FROM products ORDER BY name COLLATE NOCASE")
@@ -47,6 +49,30 @@ abstract class BusinessDao {
 
     @Query("SELECT * FROM invoice_lines WHERE invoiceId = :invoiceId ORDER BY id")
     abstract suspend fun getInvoiceLines(invoiceId: Long): List<InvoiceLineEntity>
+
+    @Query("SELECT * FROM invoice_lines WHERE invoiceId = :invoiceId ORDER BY id")
+    abstract fun observeInvoiceLines(invoiceId: Long): Flow<List<InvoiceLineEntity>>
+
+    @Query("SELECT * FROM invoice_lines WHERE id = :lineId LIMIT 1")
+    abstract suspend fun getInvoiceLine(lineId: Long): InvoiceLineEntity?
+
+    @Query("SELECT COALESCE(SUM(lineTotalMinor), 0) FROM invoice_lines WHERE invoiceId = :invoiceId")
+    abstract suspend fun getInvoiceSubtotal(invoiceId: Long): Long
+
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM sales_returns WHERE invoiceLineId = :lineId")
+    abstract suspend fun getReturnedQuantity(lineId: Long): Long
+
+    @Query("SELECT COALESCE(SUM(creditAmountMinor), 0) FROM sales_returns WHERE invoiceLineId = :lineId")
+    abstract suspend fun getLineCreditTotal(lineId: Long): Long
+
+    @Query("SELECT COALESCE(SUM(creditAmountMinor), 0) FROM sales_returns WHERE invoiceId = :invoiceId")
+    abstract suspend fun getReturnsTotal(invoiceId: Long): Long
+
+    @Query("SELECT * FROM sales_returns WHERE invoiceId = :invoiceId ORDER BY returnedAtEpochDay DESC, id DESC")
+    abstract fun observeSalesReturns(invoiceId: Long): Flow<List<SalesReturnEntity>>
+
+    @Insert
+    abstract suspend fun insertSalesReturn(salesReturn: SalesReturnEntity)
 
     @Insert
     abstract suspend fun insertInvoice(invoice: InvoiceEntity): Long
@@ -135,7 +161,8 @@ abstract class BusinessDao {
         val invoice = getInvoice(payment.invoiceId) ?: error("Invoice not found")
         require(invoice.status == "POSTED") { "Cannot pay a cancelled invoice" }
         val paid = getPaymentsTotal(payment.invoiceId)
-        require(Math.addExact(paid, payment.amountMinor) <= invoice.totalMinor) { "Payment exceeds invoice balance" }
+        val credits = getReturnsTotal(payment.invoiceId)
+        require(Math.addExact(paid, payment.amountMinor) <= Math.subtractExact(invoice.totalMinor, credits)) { "Payment exceeds invoice balance after returns" }
         return insertPayment(payment)
     }
 
@@ -144,6 +171,7 @@ abstract class BusinessDao {
         val invoice = getInvoice(invoiceId) ?: return false
         if (invoice.status != "POSTED") return false
         require(getPaymentsTotal(invoiceId) == 0L) { "Invoice with recorded payments cannot be cancelled until refunds are recorded" }
+        require(getReturnsTotal(invoiceId) == 0L) { "Invoice with recorded returns cannot be cancelled; keep the return audit trail" }
         val lines = getInvoiceLines(invoiceId)
         for (line in lines) {
             check(increaseStock(line.productId, line.quantity) == 1) {
@@ -159,5 +187,56 @@ abstract class BusinessDao {
         }
         check(markInvoiceCancelled(invoiceId) == 1) { "Invoice state changed; cancellation rolled back" }
         return true
+    }
+
+    @Transaction
+    open suspend fun recordReturn(
+        invoiceId: Long,
+        invoiceLineId: Long,
+        quantity: Long,
+        reason: String,
+        returnedAtEpochDay: Long
+    ): Long {
+        require(quantity > 0L) { "Return quantity must be positive" }
+        require(reason.isNotBlank()) { "Return reason is required" }
+        val invoice = getInvoice(invoiceId) ?: error("Invoice not found")
+        require(invoice.status == "POSTED") { "Only posted invoices can have returns" }
+        val line = getInvoiceLine(invoiceLineId) ?: error("Invoice line not found")
+        require(line.invoiceId == invoiceId) { "Invoice line does not belong to the selected invoice" }
+        val previousQuantity = getReturnedQuantity(invoiceLineId)
+        val newQuantity = Math.addExact(previousQuantity, quantity)
+        require(newQuantity <= line.quantity) { "Return quantity exceeds the quantity sold" }
+        val subtotal = getInvoiceSubtotal(invoiceId)
+        val lineDiscount = if (subtotal == 0L) 0L else
+            BigDecimal.valueOf(invoice.discountMinor)
+                .multiply(BigDecimal.valueOf(line.lineTotalMinor))
+                .divide(BigDecimal.valueOf(subtotal), 0, RoundingMode.HALF_UP)
+                .longValueExact()
+                .coerceAtMost(line.lineTotalMinor)
+        val netLineAmount = Math.subtractExact(line.lineTotalMinor, lineDiscount)
+        val targetCredit = BigDecimal.valueOf(netLineAmount)
+            .multiply(BigDecimal.valueOf(newQuantity))
+            .divide(BigDecimal.valueOf(line.quantity), 0, RoundingMode.HALF_UP)
+            .longValueExact()
+        val previousCredit = getLineCreditTotal(invoiceLineId)
+        val credit = Math.subtractExact(targetCredit, previousCredit)
+        check(credit >= 0L) { "Return credit calculation is inconsistent" }
+        check(increaseStock(line.productId, quantity) == 1) { "Could not restore returned stock" }
+        insertStockMovement(StockMovementEntity(
+            productId = line.productId,
+            quantityDelta = quantity,
+            reason = "برگشت کالا: ${reason.trim()}",
+            occurredAtEpochDay = returnedAtEpochDay,
+            invoiceId = invoiceId
+        ))
+        return insertSalesReturn(SalesReturnEntity(
+            invoiceId = invoiceId,
+            invoiceLineId = invoiceLineId,
+            productId = line.productId,
+            quantity = quantity,
+            creditAmountMinor = credit,
+            reason = reason.trim(),
+            returnedAtEpochDay = returnedAtEpochDay
+        ))
     }
 }

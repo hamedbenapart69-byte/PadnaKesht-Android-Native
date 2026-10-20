@@ -80,6 +80,42 @@ class BusinessAccountingInstrumentedTest {
     }
 
     @Test
+    fun partialAndFullReturnsRestoreStockAndApplyAuditedCustomerCredit() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "business-return-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Return customer"))
+            val productId = dao.insertProduct(ProductEntity(name = "Return item", sku = "SKU-RETURN", stockQuantity = 1, unitPriceMinor = 100))
+            val invoiceId = dao.postInvoice(
+                InvoiceEntity(customerId = customerId, createdAtEpochDay = 10),
+                listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 3, unitPriceMinor = 100, lineTotalMinor = 300))
+            )
+            val lineId = dao.getInvoiceLines(invoiceId).single().id
+            dao.recordReturn(invoiceId, lineId, 1, "کالای آسیب‌دیده", 11)
+            assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(100L, dao.getReturnsTotal(invoiceId))
+            assertEquals(200L, dao.observeCustomerBalance(customerId).let { flow ->
+                kotlinx.coroutines.flow.first(flow)
+            })
+            dao.recordReturn(invoiceId, lineId, 2, "برگشت کامل باقی‌مانده", 12)
+            assertEquals(4L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(300L, dao.getReturnsTotal(invoiceId))
+            var overReturnRejected = false
+            try {
+                dao.recordReturn(invoiceId, lineId, 1, "تعداد بیشتر از فروش", 13)
+            } catch (_: IllegalArgumentException) {
+                overReturnRejected = true
+            }
+            assertTrue(overReturnRejected)
+            assertEquals(2, dao.getStockMovements().size)
+        } finally {
+            db.close()
+            context.getDatabasePath("business-return-test.db").delete()
+        }
+    }
+
+    @Test
     fun postingInvoiceChangesStockAndCancellationRestoresIt() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "business-atomic-test.db")
