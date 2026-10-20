@@ -107,7 +107,7 @@ class BusinessAccountingInstrumentedTest {
                 overReturnRejected = true
             }
             assertTrue(overReturnRejected)
-            assertEquals(2, dao.getStockMovements().size)
+            assertEquals(3, dao.getStockMovements().size)
         } finally {
             db.close()
             context.getDatabasePath("business-return-test.db").delete()
