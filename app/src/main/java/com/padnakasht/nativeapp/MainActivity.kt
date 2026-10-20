@@ -86,7 +86,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         System.loadLibrary("sqlcipher")
         val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
-        val factory = SupportOpenHelperFactory(passphrase, null, true)
+        val factory = SupportOpenHelperFactory(passphrase)
         val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .openHelperFactory(factory)
