@@ -21,6 +21,9 @@ abstract class BusinessDao {
     @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
     abstract suspend fun getCustomer(customerId: Long): CustomerEntity?
 
+    @Query("SELECT COALESCE(SUM(CASE WHEN invoices.status = 'POSTED' THEN invoices.totalMinor - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id) ELSE 0 END), 0) FROM invoices WHERE invoices.customerId = :customerId")
+    abstract fun observeCustomerBalance(customerId: Long): Flow<Long>
+
     @Query("SELECT * FROM products ORDER BY name COLLATE NOCASE")
     abstract fun observeProducts(): Flow<List<ProductEntity>>
 
