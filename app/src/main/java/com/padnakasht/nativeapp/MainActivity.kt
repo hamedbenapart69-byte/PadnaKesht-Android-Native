@@ -1,7 +1,10 @@
 package com.padnakasht.nativeapp
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,7 +47,31 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+    private fun isBiometricAvailable(): Boolean =
+        BiometricManager.from(this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+
+    private fun authenticateBiometric(onSuccess: () -> Unit) {
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    onSuccess()
+                }
+            }
+        )
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("ورود امن به پادناکِشت")
+            .setSubtitle("هویت خود را با اثر انگشت یا زیست‌سنجی دستگاه تأیید کنید")
+            .setNegativeButtonText("استفاده از PIN")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .build()
+        prompt.authenticate(info)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         System.loadLibrary("sqlcipher")
@@ -58,7 +85,12 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 var authenticated by remember { mutableStateOf(false) }
                 if (!authenticated) {
-                    PinGate(applicationContext) { authenticated = true }
+                    PinGate(
+                        context = applicationContext,
+                        biometricAvailable = isBiometricAvailable(),
+                        onBiometricRequested = { authenticateBiometric { authenticated = true } },
+                        onAuthenticated = { authenticated = true }
+                    )
                 } else {
                 val vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(repository))
                 val transactions by vm.transactions.collectAsState()
