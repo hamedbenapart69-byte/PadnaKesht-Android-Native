@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp.data.local
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -44,7 +45,7 @@ data class InvoiceEntity(
     val createdAtEpochDay: Long,
     val totalMinor: Long = 0,
     val status: String = "POSTED",
-    val discountMinor: Long = 0,
+    @ColumnInfo(defaultValue = "0") val discountMinor: Long = 0,
     val dueAtEpochDay: Long? = null
 )
 
