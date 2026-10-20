@@ -36,7 +36,7 @@ data class ProductEntity(
         childColumns = ["customerId"],
         onDelete = ForeignKey.RESTRICT
     )],
-    indices = [Index("customerId")]
+    indices = [Index(value = ["customerId"])]
 )
 data class InvoiceEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -52,7 +52,7 @@ data class InvoiceEntity(
         ForeignKey(entity = InvoiceEntity::class, parentColumns = ["id"], childColumns = ["invoiceId"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"], onDelete = ForeignKey.RESTRICT)
     ],
-    indices = [Index("invoiceId"), Index("productId")]
+    indices = [Index(value = ["invoiceId"]), Index(value = ["productId"])]
 )
 data class InvoiceLineEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
