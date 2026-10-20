@@ -87,7 +87,7 @@ class BusinessAccountingInstrumentedTest {
         try {
             val dao = db.businessDao()
             val customerId = dao.insertCustomer(CustomerEntity(name = "Return customer"))
-            val productId = dao.insertProduct(ProductEntity(name = "Return item", sku = "SKU-RETURN", stockQuantity = 1, unitPriceMinor = 100))
+            val productId = dao.insertProduct(ProductEntity(name = "Return item", sku = "SKU-RETURN", stockQuantity = 4, unitPriceMinor = 100))
             val invoiceId = dao.postInvoice(
                 InvoiceEntity(customerId = customerId, createdAtEpochDay = 10),
                 listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 3, unitPriceMinor = 100, lineTotalMinor = 300))
