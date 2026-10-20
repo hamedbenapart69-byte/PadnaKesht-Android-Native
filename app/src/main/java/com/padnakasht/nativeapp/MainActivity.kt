@@ -40,6 +40,7 @@ import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
+import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.sqlcipher.database.SupportFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
@@ -129,78 +130,86 @@ class MainActivity : FragmentActivity() {
                 var note by remember { mutableStateOf("") }
                 var kind by remember { mutableStateOf(TransactionKind.INCOME) }
                 var error by remember { mutableStateOf<String?>(null) }
+                var showCharts by remember { mutableStateOf(false) }
 
                 Surface(Modifier.fillMaxSize()) {
-                    Column(
+                    LazyColumn(
                         Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium)
-                        Text("دفتر مالی آفلاین", style = MaterialTheme.typography.titleMedium)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
-                                Text("درآمد"); Text(summary.incomeMinor.toString(), style = MaterialTheme.typography.titleLarge)
-                            } }
-                            Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
-                                Text("هزینه"); Text(summary.expenseMinor.toString(), style = MaterialTheme.typography.titleLarge)
-                            } }
-                        }
-                        Text("خالص: ${summary.netMinor}", style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { kind = TransactionKind.INCOME }) { Text(if (kind == TransactionKind.INCOME) "✓ درآمد" else "درآمد") }
-                            Button(onClick = { kind = TransactionKind.EXPENSE }) { Text(if (kind == TransactionKind.EXPENSE) "✓ هزینه" else "هزینه") }
-                        }
-                        OutlinedTextField(
-                            value = amount, onValueChange = { amount = it.filter(Char::isDigit); error = null },
-                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ به واحد خرد پول") },
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = category, onValueChange = { category = it; error = null },
-                            modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی") }, singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = note, onValueChange = { note = it },
-                            modifier = Modifier.fillMaxWidth(), label = { Text("توضیحات (اختیاری)") }, singleLine = true
-                        )
-                        Button(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                val parsed = amount.toLongOrNull()
-                                if (parsed == null || parsed <= 0L) {
-                                    error = "مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد."
-                                } else if (category.isBlank()) {
-                                    error = "دسته‌بندی را وارد کنید."
-                                } else {
-                                    vm.addTransaction(parsed, kind, category.trim(), note.trim())
-                                    amount = ""; category = ""; note = ""; error = null
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium)
+                                Text("دفتر مالی آفلاین", style = MaterialTheme.typography.titleMedium)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
+                                        Text("درآمد"); Text(summary.incomeMinor.toString(), style = MaterialTheme.typography.titleLarge)
+                                    } }
+                                    Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
+                                        Text("هزینه"); Text(summary.expenseMinor.toString(), style = MaterialTheme.typography.titleLarge)
+                                    } }
                                 }
-                            }
-                        ) { Text("ثبت تراکنش") }
-                        if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }) { Text("خروجی PDF") }
-                            Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }) { Text("خروجی Excel") }
-                        }
-                        if (reportMessage != null) Text(reportMessage!!)
-                        Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge)
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(transactions, key = { it.id }) { item ->
-                                Card(Modifier.fillMaxWidth()) {
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text("${item.category} — ${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}")
-                                            if (item.note.isNotBlank()) Text(item.note)
+                                Text("خالص: ${summary.netMinor}", style = MaterialTheme.typography.titleMedium)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { kind = TransactionKind.INCOME }) { Text(if (kind == TransactionKind.INCOME) "✓ درآمد" else "درآمد") }
+                                    Button(onClick = { kind = TransactionKind.EXPENSE }) { Text(if (kind == TransactionKind.EXPENSE) "✓ هزینه" else "هزینه") }
+                                }
+                                OutlinedTextField(
+                                    value = amount, onValueChange = { amount = it.filter(Char::isDigit); error = null },
+                                    modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ به واحد خرد پول") }, singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = category, onValueChange = { category = it; error = null },
+                                    modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی") }, singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = note, onValueChange = { note = it },
+                                    modifier = Modifier.fillMaxWidth(), label = { Text("توضیحات (اختیاری)") }, singleLine = true
+                                )
+                                Button(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = {
+                                        val parsed = amount.toLongOrNull()
+                                        if (parsed == null || parsed <= 0L) {
+                                            error = "مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد."
+                                        } else if (category.isBlank()) {
+                                            error = "دسته‌بندی را وارد کنید."
+                                        } else {
+                                            vm.addTransaction(parsed, kind, category.trim(), note.trim())
+                                            amount = ""; category = ""; note = ""; error = null
                                         }
-                                        TextButton(onClick = { vm.removeTransaction(item.id) }) { Text("حذف") }
                                     }
+                                ) { Text("ثبت تراکنش") }
+                                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }) { Text("خروجی PDF") }
+                                    Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }) { Text("خروجی Excel") }
+                                }
+                                Button(onClick = { showCharts = !showCharts }) {
+                                    Text(if (showCharts) "بستن نمودارها" else "نمایش نمودارهای مالی")
+                                }
+                                if (reportMessage != null) Text(reportMessage!!)
+                                Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge)
+                            }
+                        }
+                        if (showCharts) item { FinancialCharts(transactions) }
+                        items(transactions, key = { it.id }) { item ->
+                            Card(Modifier.fillMaxWidth()) {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text("${item.category} — ${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}")
+                                        if (item.note.isNotBlank()) Text(item.note)
+                                    }
+                                    TextButton(onClick = { vm.removeTransaction(item.id) }) { Text("حذف") }
                                 }
                             }
                         }
                     }
+                }
+
                 }
                 }
             }
