@@ -72,9 +72,14 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت مشتری") }
         OutlinedTextField(customerSearch, { customerSearch = it }, Modifier.fillMaxWidth(), label = { Text("جست‌وجوی مشتری") }, singleLine = true)
         customers.filter { it.name.contains(customerSearch, ignoreCase = true) || it.phone.contains(customerSearch) }.forEach { customer ->
-            TextButton(onClick = { selectedCustomer = customer.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedCustomer == customer.id) "✓ " else ""}${customer.name}  •  ${customer.phone}")
-            }
+            CustomerBalanceRow(
+                customerId = customer.id,
+                name = customer.name,
+                phone = customer.phone,
+                selected = selectedCustomer == customer.id,
+                repository = repository,
+                onSelect = { selectedCustomer = customer.id }
+            )
         }
 
         Text("محصولات و موجودی", style = MaterialTheme.typography.titleMedium)
@@ -177,5 +182,21 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • جمع ${invoice.totalMinor}")
             Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${balance}")
         }
+    }
+}
+
+
+@Composable
+private fun CustomerBalanceRow(
+    customerId: Long,
+    name: String,
+    phone: String,
+    selected: Boolean,
+    repository: BusinessRepository,
+    onSelect: () -> Unit
+) {
+    val balance by repository.observeCustomerBalance(customerId).collectAsState(initial = 0L)
+    TextButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
+        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${balance}")
     }
 }
