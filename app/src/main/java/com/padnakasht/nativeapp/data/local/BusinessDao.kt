@@ -24,6 +24,9 @@ abstract class BusinessDao {
     @Query("UPDATE products SET stockQuantity = stockQuantity - :quantity WHERE id = :productId AND stockQuantity >= :quantity")
     abstract suspend fun decreaseStockIfAvailable(productId: Long, quantity: Long): Int
 
+    @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :productId")
+    abstract suspend fun increaseStock(productId: Long, quantity: Long): Int
+
     @Query("SELECT * FROM invoices WHERE id = :invoiceId LIMIT 1")
     abstract suspend fun getInvoice(invoiceId: Long): InvoiceEntity?
 
@@ -41,6 +44,9 @@ abstract class BusinessDao {
 
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payments WHERE invoiceId = :invoiceId")
     abstract suspend fun getPaymentsTotal(invoiceId: Long): Long
+
+    @Query("UPDATE invoices SET status = 'CANCELLED' WHERE id = :invoiceId AND status = 'POSTED'")
+    abstract suspend fun markInvoiceCancelled(invoiceId: Long): Int
 
     @Transaction
     open suspend fun postInvoice(invoice: InvoiceEntity, lines: List<InvoiceLineEntity>): Long {
@@ -66,7 +72,24 @@ abstract class BusinessDao {
     @Transaction
     open suspend fun recordPayment(payment: PaymentEntity): Long {
         require(payment.amountMinor > 0)
-        require(getInvoice(payment.invoiceId) != null) { "Invoice not found" }
+        val invoice = getInvoice(payment.invoiceId) ?: error("Invoice not found")
+        require(invoice.status == "POSTED") { "Cannot pay a cancelled invoice" }
+        val paid = getPaymentsTotal(payment.invoiceId)
+        require(Math.addExact(paid, payment.amountMinor) <= invoice.totalMinor) { "Payment exceeds invoice balance" }
         return insertPayment(payment)
+    }
+
+    @Transaction
+    open suspend fun cancelInvoice(invoiceId: Long): Boolean {
+        val invoice = getInvoice(invoiceId) ?: return false
+        if (invoice.status != "POSTED") return false
+        val lines = getInvoiceLines(invoiceId)
+        for (line in lines) {
+            check(increaseStock(line.productId, line.quantity) == 1) {
+                "Could not restore stock; cancellation rolled back"
+            }
+        }
+        check(markInvoiceCancelled(invoiceId) == 1) { "Invoice state changed; cancellation rolled back" }
+        return true
     }
 }
