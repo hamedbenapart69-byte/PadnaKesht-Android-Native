@@ -31,9 +31,9 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Run unit tests
-        run: gradle testDebugUnitTest
+        run: bash scripts/ci-gradle.sh unit testDebugUnitTest
       - name: Assemble debug APK
-        run: gradle assembleDebug
+        run: bash scripts/ci-gradle.sh debug assembleDebug
       - name: Verify APK exists and calculate SHA-256
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
@@ -69,7 +69,7 @@ jobs:
       # Release steps run only after unit tests and emulator tests have passed.
       - name: Build signed release APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: gradle assembleRelease
+        run: bash scripts/ci-gradle.sh release assembleRelease
       - name: Verify release APK signature, package and version
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |

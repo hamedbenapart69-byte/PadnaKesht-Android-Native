@@ -48,8 +48,7 @@ def report_xml() -> bool:
     return True
 
 
-def report_gradle_log() -> None:
-    path = "gradle-connected.log"
+def report_gradle_log(path: str = "gradle-connected.log") -> None:
     if not os.path.exists(path):
         notice("gradle-connected.log", "missing")
         return
@@ -87,6 +86,9 @@ def report_logcat() -> None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--gradle-log":
+        report_gradle_log(sys.argv[2])
+        sys.exit(0)
     found = report_xml()
     if not found:
         notice("androidTest XML", "no result files were produced")
