@@ -14,7 +14,7 @@ import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import kotlinx.coroutines.runBlocking
 import net.sqlcipher.database.SupportFactory
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -42,18 +42,30 @@ class BusinessAccountingInstrumentedTest {
             )
             assertEquals(200L, dao.getInvoice(invoiceId)?.totalMinor)
             assertEquals(1L, dao.getProduct(productId)?.stockQuantity)
-            dao.recordPayment(PaymentEntity(invoiceId = invoiceId, amountMinor = 100, paidAtEpochDay = 1))
-            assertEquals(100L, dao.getPaymentsTotal(invoiceId))
+            assertTrue(dao.cancelInvoice(invoiceId))
+            assertEquals(3L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals("CANCELLED", dao.getInvoice(invoiceId)?.status)
+
+            val secondInvoiceId = dao.postInvoice(
+                InvoiceEntity(customerId = customerId, createdAtEpochDay = 2),
+                listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 1, unitPriceMinor = 100, lineTotalMinor = 100))
+            )
+            dao.recordPayment(PaymentEntity(invoiceId = secondInvoiceId, amountMinor = 50, paidAtEpochDay = 2))
+            assertEquals(50L, dao.getPaymentsTotal(secondInvoiceId))
             var rejected = false
             try {
-                dao.recordPayment(PaymentEntity(invoiceId = invoiceId, amountMinor = 101, paidAtEpochDay = 1))
+                dao.recordPayment(PaymentEntity(invoiceId = secondInvoiceId, amountMinor = 51, paidAtEpochDay = 2))
             } catch (_: IllegalArgumentException) {
                 rejected = true
             }
-            assertEquals(true, rejected)
-            assertEquals(true, dao.cancelInvoice(invoiceId))
-            assertEquals(3L, dao.getProduct(productId)?.stockQuantity)
-            assertEquals("CANCELLED", dao.getInvoice(invoiceId)?.status)
+            assertTrue(rejected)
+            var cancellationRejected = false
+            try {
+                dao.cancelInvoice(secondInvoiceId)
+            } catch (_: IllegalArgumentException) {
+                cancellationRejected = true
+            }
+            assertTrue(cancellationRejected)
         } finally {
             db.close()
             context.getDatabasePath("business-atomic-test.db").delete()
@@ -81,7 +93,7 @@ class BusinessAccountingInstrumentedTest {
             } catch (_: IllegalStateException) {
                 rejected = true
             }
-            assertEquals(true, rejected)
+            assertTrue(rejected)
             assertEquals(2L, dao.getProduct(stocked)?.stockQuantity)
             assertEquals(0, dao.invoiceCount())
         } finally {
