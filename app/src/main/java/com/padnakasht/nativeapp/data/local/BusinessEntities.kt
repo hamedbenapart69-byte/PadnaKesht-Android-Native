@@ -77,7 +77,7 @@ data class InvoiceLineEntity(
         childColumns = ["invoiceId"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("invoiceId")]
+    indices = [Index(value = ["invoiceId"])]
 )
 data class PaymentEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
