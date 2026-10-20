@@ -27,6 +27,16 @@ class BusinessRepository(private val dao: BusinessDao) {
         return dao.insertProduct(ProductEntity(name = name.trim(), sku = sku.trim(), stockQuantity = stockQuantity, unitPriceMinor = unitPriceMinor))
     }
 
+    suspend fun createInvoice(customerId: Long, lines: List<InvoiceLineEntity>): Long {
+        require(customerId > 0) { "Customer is required" }
+        require(lines.isNotEmpty()) { "An invoice must contain at least one line" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.postInvoice(
+            InvoiceEntity(customerId = customerId, createdAtEpochDay = LocalDate.now().toEpochDay()),
+            lines
+        )
+    }
+
     suspend fun createSingleProductInvoice(customerId: Long, productId: Long, quantity: Long): Long {
         require(quantity > 0) { "Quantity must be positive" }
         val product = dao.getProduct(productId) ?: error("Product not found")
