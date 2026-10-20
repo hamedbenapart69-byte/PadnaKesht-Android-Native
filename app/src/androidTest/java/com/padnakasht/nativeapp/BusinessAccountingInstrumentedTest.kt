@@ -73,6 +73,31 @@ class BusinessAccountingInstrumentedTest {
     }
 
     @Test
+    fun discountAndDueDateArePersistedAndPaymentUsesDiscountedTotal() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "business-discount-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Discount customer"))
+            val productId = dao.insertProduct(ProductEntity(name = "Discount item", sku = "SKU-DISCOUNT", stockQuantity = 4, unitPriceMinor = 250))
+            val dueDay = 20000L
+            val invoiceId = dao.postInvoice(
+                InvoiceEntity(customerId = customerId, createdAtEpochDay = 1, discountMinor = 100, dueAtEpochDay = dueDay),
+                listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 2, unitPriceMinor = 250, lineTotalMinor = 500))
+            )
+            val invoice = dao.getInvoice(invoiceId)!!
+            assertEquals(400L, invoice.totalMinor)
+            assertEquals(100L, invoice.discountMinor)
+            assertEquals(dueDay, invoice.dueAtEpochDay)
+            dao.recordPayment(PaymentEntity(invoiceId = invoiceId, amountMinor = 400, paidAtEpochDay = 2))
+            assertEquals(400L, dao.getPaymentsTotal(invoiceId))
+        } finally {
+            db.close()
+            context.getDatabasePath("business-discount-test.db").delete()
+        }
+    }
+
+    @Test
     fun failedInvoicePostingRollsBackEarlierStockChanges() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "business-rollback-test.db")

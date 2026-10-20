@@ -27,12 +27,23 @@ class BusinessRepository(private val dao: BusinessDao) {
         return dao.insertProduct(ProductEntity(name = name.trim(), sku = sku.trim(), stockQuantity = stockQuantity, unitPriceMinor = unitPriceMinor))
     }
 
-    suspend fun createInvoice(customerId: Long, lines: List<InvoiceLineEntity>): Long {
+    suspend fun createInvoice(
+        customerId: Long,
+        lines: List<InvoiceLineEntity>,
+        discountMinor: Long = 0L,
+        dueAtEpochDay: Long? = null
+    ): Long {
         require(customerId > 0) { "Customer is required" }
         require(lines.isNotEmpty()) { "An invoice must contain at least one line" }
+        require(discountMinor >= 0L) { "Discount cannot be negative" }
         require(dao.getCustomer(customerId) != null) { "Customer not found" }
         return dao.postInvoice(
-            InvoiceEntity(customerId = customerId, createdAtEpochDay = LocalDate.now().toEpochDay()),
+            InvoiceEntity(
+                customerId = customerId,
+                createdAtEpochDay = LocalDate.now().toEpochDay(),
+                discountMinor = discountMinor,
+                dueAtEpochDay = dueAtEpochDay
+            ),
             lines
         )
     }

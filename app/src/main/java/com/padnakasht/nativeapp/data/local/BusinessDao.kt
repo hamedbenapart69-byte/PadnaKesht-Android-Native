@@ -80,7 +80,10 @@ abstract class BusinessDao {
             require(line.lineTotalMinor == lineTotal) { "Line total does not match quantity × unit price" }
             total = Math.addExact(total, lineTotal)
         }
-        val invoiceId = insertInvoice(invoice.copy(totalMinor = total))
+        require(invoice.discountMinor >= 0L) { "Discount cannot be negative" }
+        require(invoice.discountMinor <= total) { "Discount cannot exceed invoice subtotal" }
+        val netTotal = Math.subtractExact(total, invoice.discountMinor)
+        val invoiceId = insertInvoice(invoice.copy(totalMinor = netTotal))
         for (line in lines) {
             check(decreaseStockIfAvailable(line.productId, line.quantity) == 1) {
                 "Insufficient stock or product not found; invoice posting rolled back"

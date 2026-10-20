@@ -90,7 +90,7 @@ class MainActivity : FragmentActivity() {
         val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
         val factory = SupportOpenHelperFactory(passphrase)
         val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .openHelperFactory(factory)
             .build()
         val repository = TransactionRepository(db.transactionDao())

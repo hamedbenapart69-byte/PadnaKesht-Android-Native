@@ -43,7 +43,9 @@ data class InvoiceEntity(
     val customerId: Long,
     val createdAtEpochDay: Long,
     val totalMinor: Long = 0,
-    val status: String = "POSTED"
+    val status: String = "POSTED",
+    val discountMinor: Long = 0,
+    val dueAtEpochDay: Long? = null
 )
 
 @Entity(
