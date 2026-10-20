@@ -44,21 +44,24 @@ jobs:
           retention-days: 14
       - name: Run Compose/Espresso UI smoke test on emulator
         uses: reactivecircus/android-emulator-runner@v2
-        timeout-minutes: 15
+        timeout-minutes: 18
         with:
           api-level: 35
           arch: x86_64
           profile: pixel_2
-          script: |
-            gradle connectedDebugAndroidTest || TEST_RESULT=$?
-            mkdir -p screenshots
-            adb pull /sdcard/Android/data/com.padnakasht.nativeapp/files/. screenshots/ || true
-            exit ${TEST_RESULT:-0}
-      - name: Upload emulator screenshots
+          script: >-
+            bash -c 'set +e;
+            gradle connectedDebugAndroidTest;
+            test_result=$?;
+            mkdir -p screenshots;
+            adb logcat -d > screenshots/emulator-logcat.txt 2>&1;
+            adb pull /sdcard/Android/data/com.padnakasht.nativeapp/files/. screenshots/ >/dev/null 2>&1;
+            exit "$test_result"'
+      - name: Upload emulator screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: padnakasht-emulator-screenshots
-          path: screenshots/*.png
-          if-no-files-found: ignore
+          name: padnakasht-emulator-diagnostics
+          path: screenshots/*
+          if-no-files-found: warn
           retention-days: 14
