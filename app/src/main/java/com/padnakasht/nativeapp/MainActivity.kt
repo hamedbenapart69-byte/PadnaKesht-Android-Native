@@ -45,7 +45,7 @@ import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.report.FinancialReportExporter
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
 import com.padnakasht.nativeapp.domain.OfflineInsights
@@ -86,7 +86,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         System.loadLibrary("sqlcipher")
         val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
-        val factory = SupportFactory(passphrase, null, true)
+        val factory = SupportOpenHelperFactory(passphrase, null, true)
         val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .openHelperFactory(factory)
