@@ -40,8 +40,8 @@ class BusinessAccountingInstrumentedTest {
                 InvoiceEntity(customerId = customerId, createdAtEpochDay = 1),
                 listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 2, unitPriceMinor = 100, lineTotalMinor = 200))
             )
-            assertEquals(200L, dao.getInvoice(invoiceId)?.totalMinor)
-            assertEquals(1L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(200L, dao.getInvoice(invoiceId)?.totalMinor ?: -1L)
+            assertEquals(1L, dao.getProduct(productId)?.stockQuantity ?: -1L)
             assertTrue(dao.cancelInvoice(invoiceId))
             assertEquals(3L, dao.getProduct(productId)?.stockQuantity)
             assertEquals("CANCELLED", dao.getInvoice(invoiceId)?.status)
@@ -94,7 +94,7 @@ class BusinessAccountingInstrumentedTest {
                 rejected = true
             }
             assertTrue(rejected)
-            assertEquals(2L, dao.getProduct(stocked)?.stockQuantity)
+            assertEquals(2L, dao.getProduct(stocked)?.stockQuantity ?: -1L)
             assertEquals(0, dao.invoiceCount())
         } finally {
             db.close()
