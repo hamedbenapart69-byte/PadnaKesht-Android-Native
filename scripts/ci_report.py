@@ -78,6 +78,9 @@ def report_logcat() -> None:
         if "FATAL EXCEPTION" in line or "am_crash" in line:
             error("Logcat crash", "\n".join(lines[i:i + 18]))
             return
+    tree = [l.split("SMOKE_TREE:", 1)[1].strip() for l in lines if "SMOKE_TREE" in l]
+    if tree:
+        error("Compose semantics tree at smoke failure", "\n".join(tree[:70]))
     hits = [l for l in lines if re.search(r"(padnakasht|TestRunner|AndroidRuntime).*(Exception|Error|fail)", l, re.I)]
     if hits:
         error("Logcat exceptions", "\n".join(hits[:12]))

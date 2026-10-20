@@ -178,7 +178,8 @@ class BusinessAccountingInstrumentedTest {
             assertEquals(3, movements.size)
             assertEquals(3L, movements.first().quantityDelta)
             assertEquals("Found during count", movements.first().reason)
-            assertEquals(6L, dao.getProduct(productId)?.stockQuantity)
+            // 5 initial - 2 invoice + 2 cancellation restore + 3 manual adjustment = 8
+            assertEquals(8L, dao.getProduct(productId)?.stockQuantity)
         } finally {
             db.close()
             context.getDatabasePath("stock-movement-test.db").delete()
