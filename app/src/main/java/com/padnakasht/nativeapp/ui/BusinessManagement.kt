@@ -52,6 +52,7 @@ fun BusinessManagement(repository: BusinessRepository) {
     var paymentInvoice by remember { mutableStateOf("") }
     var paymentAmount by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
     val cart = remember { mutableStateListOf<DraftLine>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -61,13 +62,16 @@ fun BusinessManagement(repository: BusinessRepository) {
         OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, singleLine = true)
         Button(
             onClick = {
+                if (isSaving) return@Button
+                isSaving = true
                 scope.launch {
                     runCatching { repository.addCustomer(customerName, customerPhone) }
                         .onSuccess { customerName = ""; customerPhone = ""; message = "مشتری ثبت شد." }
                         .onFailure { message = "ثبت مشتری ناموفق بود: ${it.message ?: "خطای نامشخص"}" }
+                        .also { isSaving = false }
                 }
             },
-            enabled = customerName.isNotBlank(),
+            enabled = customerName.isNotBlank() && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت مشتری") }
         OutlinedTextField(customerSearch, { customerSearch = it }, Modifier.fillMaxWidth(), label = { Text("جست‌وجوی مشتری") }, singleLine = true)
@@ -89,13 +93,16 @@ fun BusinessManagement(repository: BusinessRepository) {
         OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
         Button(
             onClick = {
+                if (isSaving) return@Button
+                isSaving = true
                 scope.launch {
                     runCatching { repository.addProduct(productName, sku, stock.toLong(), price.toLong()) }
                         .onSuccess { productName = ""; sku = ""; stock = "0"; price = ""; message = "محصول ثبت شد." }
                         .onFailure { message = "ثبت محصول ناموفق بود؛ نام، کد یکتا، موجودی و قیمت را بررسی کنید." }
+                        .also { isSaving = false }
                 }
             },
-            enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null,
+            enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت محصول") }
         products.forEach { product ->
@@ -135,7 +142,10 @@ fun BusinessManagement(repository: BusinessRepository) {
             onClick = {
                 val customerId = selectedCustomer
                 if (customerId == null || cart.isEmpty()) message = "مشتری و حداقل یک قلم کالا لازم است."
-                else scope.launch {
+                else if (isSaving) message = "عملیات قبلی هنوز در حال انجام است."
+                else {
+                    isSaving = true
+                    scope.launch {
                     runCatching {
                         repository.createInvoice(
                             customerId,
@@ -143,9 +153,11 @@ fun BusinessManagement(repository: BusinessRepository) {
                         )
                     }.onSuccess { cart.clear(); message = "فاکتور ثبت شد و موجودی به‌روزرسانی شد." }
                         .onFailure { message = "ثبت فاکتور انجام نشد؛ موجودی و اطلاعات را بررسی کنید." }
+                        .also { isSaving = false }
+                    }
                 }
             },
-            enabled = selectedCustomer != null && cart.isNotEmpty(),
+            enabled = selectedCustomer != null && cart.isNotEmpty() && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت نهایی فاکتور") }
 
@@ -157,13 +169,18 @@ fun BusinessManagement(repository: BusinessRepository) {
                 val invoiceId = paymentInvoice.toLongOrNull()
                 val amount = paymentAmount.toLongOrNull()
                 if (invoiceId == null || amount == null || amount <= 0) message = "شناسه فاکتور و مبلغ معتبر لازم است."
-                else scope.launch {
-                    runCatching { repository.receivePayment(invoiceId, amount) }
-                        .onSuccess { paymentAmount = ""; message = "دریافت ثبت شد." }
-                        .onFailure { message = "ثبت دریافت ناموفق بود؛ مانده فاکتور را بررسی کنید." }
+                else if (isSaving) message = "عملیات قبلی هنوز در حال انجام است."
+                else {
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.receivePayment(invoiceId, amount) }
+                            .onSuccess { paymentAmount = ""; message = "دریافت ثبت شد." }
+                            .onFailure { message = "ثبت دریافت ناموفق بود؛ مانده فاکتور را بررسی کنید." }
+                            .also { isSaving = false }
+                    }
                 }
             },
-            enabled = paymentInvoice.toLongOrNull()?.let { it > 0 } == true && paymentAmount.toLongOrNull()?.let { it > 0 } == true,
+            enabled = paymentInvoice.toLongOrNull()?.let { it > 0 } == true && paymentAmount.toLongOrNull()?.let { it > 0 } == true && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت دریافت") }
         invoices.forEach { invoice ->
