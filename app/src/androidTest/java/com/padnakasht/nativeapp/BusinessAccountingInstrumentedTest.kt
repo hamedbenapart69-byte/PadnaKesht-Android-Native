@@ -12,7 +12,7 @@ import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import kotlinx.coroutines.runBlocking
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,7 +24,7 @@ class BusinessAccountingInstrumentedTest {
         System.loadLibrary("sqlcipher")
         context.getDatabasePath(name).delete()
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .openHelperFactory(SupportFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
+            .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
     }
 
