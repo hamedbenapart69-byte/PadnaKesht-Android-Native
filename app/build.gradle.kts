@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -21,8 +23,8 @@ android {
 
     // Stable app-specific signing key so every release can update the previous install.
     // NOTE: the key lives in the repository (no secret store is available here); see docs/STATUS.md.
-    val signingProps = java.util.Properties().apply {
-        load(file("signing.properties").inputStream())
+    val signingProps = Properties().apply {
+        file("signing.properties").inputStream().use { load(it) }
     }
     signingConfigs {
         create("release") {
