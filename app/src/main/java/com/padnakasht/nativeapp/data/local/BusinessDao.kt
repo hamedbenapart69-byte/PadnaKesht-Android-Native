@@ -27,6 +27,12 @@ abstract class BusinessDao {
     @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :productId")
     abstract suspend fun increaseStock(productId: Long, quantity: Long): Int
 
+    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    abstract suspend fun getProduct(productId: Long): ProductEntity?
+
+    @Query("SELECT COUNT(*) FROM invoices")
+    abstract suspend fun invoiceCount(): Int
+
     @Query("SELECT * FROM invoices WHERE id = :invoiceId LIMIT 1")
     abstract suspend fun getInvoice(invoiceId: Long): InvoiceEntity?
 
