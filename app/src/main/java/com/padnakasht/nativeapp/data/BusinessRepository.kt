@@ -67,6 +67,8 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId)
 
+    fun observePaymentsTotal(invoiceId: Long) = dao.observePaymentsTotal(invoiceId)
+
     suspend fun outstandingBalance(invoiceId: Long): Long {
         val invoice = dao.getInvoice(invoiceId) ?: error("Invoice not found")
         return (invoice.totalMinor - dao.getPaymentsTotal(invoiceId)).coerceAtLeast(0L)
