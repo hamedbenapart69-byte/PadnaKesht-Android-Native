@@ -33,7 +33,8 @@ class LedgerRulesTest {
     }
 
     @Test fun forecastsMeanOfRecentThreeAndHandlesNoData() {
-        assertEquals(20L, OfflineInsights.forecastNextPeriod(listOf(10L, 20L, 30L, 40L)))
+        // The most recent three values are 20, 30, and 40; their mean is 30.
+        assertEquals(30L, OfflineInsights.forecastNextPeriod(listOf(10L, 20L, 30L, 40L)))
         assertNull(OfflineInsights.forecastNextPeriod(emptyList()))
     }
 }
