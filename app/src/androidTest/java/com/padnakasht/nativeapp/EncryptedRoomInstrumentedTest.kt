@@ -8,7 +8,7 @@ import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.data.local.TransactionEntity
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import kotlinx.coroutines.runBlocking
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +25,7 @@ class EncryptedRoomInstrumentedTest {
         file.delete()
         val passphrase = DatabasePassphraseProvider.getOrCreate(context)
         val db = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .openHelperFactory(SupportFactory(passphrase, null, true))
+            .openHelperFactory(SupportOpenHelperFactory(passphrase, null, true))
             .build()
         try {
             db.transactionDao().insert(
