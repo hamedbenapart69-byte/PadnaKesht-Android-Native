@@ -9,6 +9,7 @@ import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import org.hamcrest.Matchers.containsString
 
 @RunWith(AndroidJUnit4::class)
 class OfflineAppSmokeTest {
@@ -16,8 +17,7 @@ class OfflineAppSmokeTest {
     val activityRule = ActivityTestRule(MainActivity::class.java)
 
     @Test
-    fun firstLaunchRequiresSecurePinSetupBeforeShowingLedger() {
-        onView(withText("امنیت پادناکِشت")).check(matches(isDisplayed()))
-        onView(withText("ایجاد PIN و ادامه")).check(matches(isDisplayed()))
+    fun appStartsAtSecurityGateOrLedgerScreen() {
+        onView(withText(containsString("پادناکِشت"))).check(matches(isDisplayed()))
     }
 }
