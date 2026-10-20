@@ -29,18 +29,12 @@ jobs:
         run: gradle testDebugUnitTest
       - name: Assemble debug APK
         run: gradle assembleDebug
-      - name: Run Compose/Espresso UI smoke test on emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_2
-          script: gradle connectedDebugAndroidTest
       - name: Verify APK exists and calculate SHA-256
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk | tee app-debug.apk.sha256
-      - uses: actions/upload-artifact@v4
+      - name: Upload verified debug APK
+        uses: actions/upload-artifact@v4
         with:
           name: padnakasht-native-debug-apk
           path: |
@@ -48,3 +42,11 @@ jobs:
             app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
+      - name: Run Compose/Espresso UI smoke test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        timeout-minutes: 15
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: gradle connectedDebugAndroidTest
