@@ -92,6 +92,7 @@ abstract class BusinessDao {
     open suspend fun cancelInvoice(invoiceId: Long): Boolean {
         val invoice = getInvoice(invoiceId) ?: return false
         if (invoice.status != "POSTED") return false
+        require(getPaymentsTotal(invoiceId) == 0L) { "Invoice with recorded payments cannot be cancelled until refunds are recorded" }
         val lines = getInvoiceLines(invoiceId)
         for (line in lines) {
             check(increaseStock(line.productId, line.quantity) == 1) {
