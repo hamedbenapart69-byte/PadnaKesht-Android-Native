@@ -32,6 +32,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
+import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
+import net.sqlcipher.database.SupportFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
 import com.padnakasht.nativeapp.domain.TransactionKind
@@ -43,7 +45,12 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db").build()
+        System.loadLibrary("sqlcipher")
+        val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
+        val factory = SupportFactory(passphrase, null, true)
+        val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
+            .openHelperFactory(factory)
+            .build()
         val repository = TransactionRepository(db.transactionDao())
         setContent {
             MaterialTheme {
