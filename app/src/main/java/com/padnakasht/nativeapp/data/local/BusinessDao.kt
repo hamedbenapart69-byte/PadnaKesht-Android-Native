@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 abstract class BusinessDao {
+    @Query("SELECT * FROM invoices ORDER BY createdAtEpochDay DESC, id DESC")
+    abstract fun observeInvoices(): Flow<List<InvoiceEntity>>
+
     @Query("SELECT * FROM customers ORDER BY name COLLATE NOCASE")
     abstract fun observeCustomers(): Flow<List<CustomerEntity>>
 
