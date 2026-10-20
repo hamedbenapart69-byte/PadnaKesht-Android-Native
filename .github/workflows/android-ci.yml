@@ -9,7 +9,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,6 +24,13 @@ jobs:
         run: gradle testDebugUnitTest
       - name: Assemble debug APK
         run: gradle assembleDebug
+      - name: Run Compose/Espresso UI smoke test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: gradle connectedDebugAndroidTest
       - name: Verify APK exists and calculate SHA-256
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
