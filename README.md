@@ -14,3 +14,10 @@
 
 ## ساخت
 ساخت با GitHub Actions انجام می‌شود. ابتدا workflow باید dependencyها را دریافت و unit testها و debug APK را بسازد؛ خروجی debug به معنی تأیید امنیت یا آمادگی انتشار نیست.
+
+
+## Business accounting updates
+
+- Invoice cards show the persisted receipt history and update balances from local Room data.
+- Business submit buttons are disabled while a local save is in progress to reduce accidental duplicate submissions.
+- CI verifies and uploads the debug APK with a SHA-256 checksum before running the emulator smoke test, so a slow emulator cannot block artifact availability.
