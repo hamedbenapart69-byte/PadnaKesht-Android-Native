@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: native-android-${{ github.ref }}
   cancel-in-progress: true
@@ -66,3 +66,28 @@ jobs:
           path: screenshots/*
           if-no-files-found: warn
           retention-days: 14
+      # Release steps run only after unit tests and emulator tests have passed.
+      - name: Build signed release APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: gradle assembleRelease
+      - name: Verify release APK signature, package and version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee release-verify.txt
+          "$BT/aapt" dump badging "$APK" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^application-label:" | tee -a release-verify.txt
+          cp "$APK" padnakesht-release.apk
+          sha256sum padnakesht-release.apk | tee padnakesht-release.apk.sha256
+      - name: Publish GitHub Release with the verified APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          TAG="v${VER}-build${{ github.run_number }}"
+          gh release create "$TAG" padnakesht-release.apk padnakesht-release.apk.sha256 \
+            --title "PadnaKesht ${VER} (build ${{ github.run_number }})" \
+            --notes "Signed release APK built after unit tests and emulator tests passed. SHA-256 is attached. Development release, not a final production release." \
+            --target "$GITHUB_SHA" --prerelease

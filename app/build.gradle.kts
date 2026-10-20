@@ -13,9 +13,31 @@ android {
         applicationId = "com.padnakasht.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI run number keeps versionCode strictly increasing so new builds can update old installs.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Stable app-specific signing key so every release can update the previous install.
+    // NOTE: the key lives in the repository (no secret store is available here); see docs/STATUS.md.
+    val signingProps = java.util.Properties().apply {
+        load(file("signing.properties").inputStream())
+    }
+    signingConfigs {
+        create("release") {
+            storeFile = file(signingProps.getProperty("storeFile"))
+            storePassword = signingProps.getProperty("storePassword")
+            keyAlias = signingProps.getProperty("keyAlias")
+            keyPassword = signingProps.getProperty("keyPassword")
+        }
+    }
+    buildTypes {
+        release {
+            // Shrinking stays off until Room/SQLCipher keep rules are verified on a device.
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     // Keep Java, Kotlin and KSP bytecode targets aligned in CI and local builds.
