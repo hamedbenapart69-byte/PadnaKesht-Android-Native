@@ -16,8 +16,8 @@ class OfflineAppSmokeTest {
     val activityRule = ActivityTestRule(MainActivity::class.java)
 
     @Test
-    fun mainScreenShowsNativeOfflineLedger() {
-        onView(withText("پادناکِشت")).check(matches(isDisplayed()))
-        onView(withText("ثبت تراکنش")).check(matches(isDisplayed()))
+    fun firstLaunchRequiresSecurePinSetupBeforeShowingLedger() {
+        onView(withText("امنیت پادناکِشت")).check(matches(isDisplayed()))
+        onView(withText("ایجاد PIN و ادامه")).check(matches(isDisplayed()))
     }
 }
