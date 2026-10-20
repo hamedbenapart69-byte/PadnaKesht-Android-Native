@@ -38,6 +38,7 @@ fun BusinessManagement(repository: BusinessRepository) {
     val customers by repository.customers.collectAsState(initial = emptyList())
     val products by repository.products.collectAsState(initial = emptyList())
     val invoices by repository.invoices.collectAsState(initial = emptyList())
+    val stockMovements by repository.stockMovements.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
 
     var customerName by remember { mutableStateOf("") }
@@ -47,6 +48,8 @@ fun BusinessManagement(repository: BusinessRepository) {
     var sku by remember { mutableStateOf("") }
     var stock by remember { mutableStateOf("0") }
     var price by remember { mutableStateOf("") }
+    var adjustmentDelta by remember { mutableStateOf("") }
+    var adjustmentReason by remember { mutableStateOf("") }
     var selectedCustomer by remember { mutableStateOf<Long?>(null) }
     var selectedProduct by remember { mutableStateOf<Long?>(null) }
     var quantity by remember { mutableStateOf("1") }
@@ -111,6 +114,57 @@ fun BusinessManagement(repository: BusinessRepository) {
         products.forEach { product ->
             TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
                 Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • کد ${product.sku} • موجودی ${product.stockQuantity} • قیمت ${product.unitPriceMinor}")
+            }
+        }
+
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("اصلاح موجودی با ثبت سابقه", style = MaterialTheme.typography.titleMedium)
+                Text("کالا را از فهرست بالا انتخاب کنید. عدد مثبت ورود و عدد منفی خروج دستی است.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    adjustmentDelta,
+                    { adjustmentDelta = if (it == "-" || it.all(Char::isDigit)) it else it.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') } },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("تغییر تعداد (+/-)") },
+                    singleLine = true
+                )
+                OutlinedTextField(adjustmentReason, { adjustmentReason = it }, Modifier.fillMaxWidth(), label = { Text("علت اصلاح موجودی") }, singleLine = true)
+                Button(
+                    onClick = {
+                        val productId = selectedProduct
+                        val delta = adjustmentDelta.toLongOrNull()
+                        if (productId == null || delta == null || delta == 0L || adjustmentReason.isBlank()) {
+                            message = "کالا، مقدار غیرصفر و علت اصلاح را وارد کنید."
+                        } else if (isSaving) {
+                            message = "عملیات قبلی هنوز در حال انجام است."
+                        } else {
+                            isSaving = true
+                            scope.launch {
+                                runCatching { repository.adjustStock(productId, delta, adjustmentReason) }
+                                    .onSuccess { adjustmentDelta = ""; adjustmentReason = ""; message = "اصلاح موجودی و سابقه ثبت شد." }
+                                    .onFailure { message = "اصلاح موجودی انجام نشد؛ موجودی و علت را بررسی کنید." }
+                                    .also { isSaving = false }
+                            }
+                        }
+                    },
+                    enabled = selectedProduct != null && adjustmentDelta.toLongOrNull()?.let { it != 0L } == true && adjustmentReason.isNotBlank() && !isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("ثبت اصلاح موجودی") }
+            }
+        }
+        Text("گردش اخیر انبار", style = MaterialTheme.typography.titleMedium)
+        if (stockMovements.isEmpty()) {
+            Text("هنوز گردش انباری ثبت نشده است.", style = MaterialTheme.typography.bodySmall)
+        } else {
+            stockMovements.take(8).forEach { movement ->
+                val productLabel = products.firstOrNull { it.id == movement.productId }?.name ?: "کالای #${movement.productId}"
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(productLabel, style = MaterialTheme.typography.titleSmall)
+                        Text("${if (movement.quantityDelta > 0) "+" else ""}${movement.quantityDelta} • ${movement.reason}")
+                        Text(LocalDate.ofEpochDay(movement.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
 

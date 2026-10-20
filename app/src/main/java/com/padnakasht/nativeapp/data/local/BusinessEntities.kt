@@ -92,3 +92,22 @@ data class PaymentEntity(
 ) {
     init { require(amountMinor > 0) }
 }
+
+@Entity(
+    tableName = "stock_movements",
+    foreignKeys = [
+        ForeignKey(entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = InvoiceEntity::class, parentColumns = ["id"], childColumns = ["invoiceId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index(value = ["productId"]), Index(value = ["invoiceId"])]
+)
+data class StockMovementEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val productId: Long,
+    val quantityDelta: Long,
+    val reason: String,
+    val occurredAtEpochDay: Long,
+    val invoiceId: Long? = null
+) {
+    init { require(quantityDelta != 0L); require(reason.isNotBlank()) }
+}

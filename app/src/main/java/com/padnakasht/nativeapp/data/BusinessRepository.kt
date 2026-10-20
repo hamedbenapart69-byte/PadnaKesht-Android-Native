@@ -6,6 +6,7 @@ import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
+import com.padnakasht.nativeapp.data.local.StockMovementEntity
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -13,6 +14,7 @@ class BusinessRepository(private val dao: BusinessDao) {
     val customers = dao.observeCustomers()
     val products = dao.observeProducts()
     val invoices = dao.observeInvoices()
+    val stockMovements = dao.observeStockMovements()
 
     suspend fun addCustomer(name: String, phone: String = "", notes: String = ""): Long {
         require(name.isNotBlank()) { "Customer name is required" }
@@ -77,6 +79,9 @@ class BusinessRepository(private val dao: BusinessDao) {
         )
 
     suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId)
+
+    suspend fun adjustStock(productId: Long, quantityDelta: Long, reason: String): Boolean =
+        dao.adjustStock(productId, quantityDelta, reason, LocalDate.now().toEpochDay())
 
     fun observePaymentsTotal(invoiceId: Long) = dao.observePaymentsTotal(invoiceId)
 

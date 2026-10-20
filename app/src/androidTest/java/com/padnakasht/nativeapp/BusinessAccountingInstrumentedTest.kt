@@ -100,6 +100,33 @@ class BusinessAccountingInstrumentedTest {
     }
 
     @Test
+    fun stockMovementsTrackInvoiceCancellationAndManualAdjustment() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "stock-movement-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Stock audit customer"))
+            val productId = dao.insertProduct(ProductEntity(name = "Stock audit item", sku = "SKU-STOCK-AUDIT", stockQuantity = 5, unitPriceMinor = 100))
+            val invoiceId = dao.postInvoice(
+                InvoiceEntity(customerId = customerId, createdAtEpochDay = 100),
+                listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 2, unitPriceMinor = 100, lineTotalMinor = 200))
+            )
+            assertEquals(-2L, dao.getStockMovements().first().quantityDelta)
+            assertTrue(dao.cancelInvoice(invoiceId))
+            assertEquals(2L, dao.getStockMovements().first().quantityDelta)
+            assertTrue(dao.adjustStock(productId, 3, "Found during count", 101))
+            val movements = dao.getStockMovements()
+            assertEquals(3, movements.size)
+            assertEquals(3L, movements.first().quantityDelta)
+            assertEquals("Found during count", movements.first().reason)
+            assertEquals(6L, dao.getProduct(productId)?.stockQuantity)
+        } finally {
+            db.close()
+            context.getDatabasePath("stock-movement-test.db").delete()
+        }
+    }
+
+    @Test
     fun discountAndDueDateArePersistedAndPaymentUsesDiscountedTotal() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "business-discount-test.db")

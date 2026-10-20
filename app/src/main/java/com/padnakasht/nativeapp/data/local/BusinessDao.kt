@@ -57,6 +57,35 @@ abstract class BusinessDao {
     @Insert
     abstract suspend fun insertPayment(payment: PaymentEntity): Long
 
+    @Insert
+    abstract suspend fun insertStockMovement(movement: StockMovementEntity): Long
+
+    @Query("SELECT * FROM stock_movements ORDER BY occurredAtEpochDay DESC, id DESC LIMIT 20")
+    abstract fun observeStockMovements(): Flow<List<StockMovementEntity>>
+
+    @Query("SELECT * FROM stock_movements ORDER BY occurredAtEpochDay DESC, id DESC")
+    abstract suspend fun getStockMovements(): List<StockMovementEntity>
+
+    @Transaction
+    open suspend fun adjustStock(productId: Long, quantityDelta: Long, reason: String, occurredAtEpochDay: Long): Boolean {
+        require(quantityDelta != 0L) { "Stock adjustment must not be zero" }
+        require(reason.isNotBlank()) { "Stock adjustment reason is required" }
+        if (getProduct(productId) == null) return false
+        val updated = if (quantityDelta < 0L) {
+            decreaseStockIfAvailable(productId, Math.negateExact(quantityDelta))
+        } else {
+            increaseStock(productId, quantityDelta)
+        }
+        check(updated == 1) { "Insufficient stock or product not found" }
+        insertStockMovement(StockMovementEntity(
+            productId = productId,
+            quantityDelta = quantityDelta,
+            reason = reason.trim(),
+            occurredAtEpochDay = occurredAtEpochDay
+        ))
+        return true
+    }
+
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payments WHERE invoiceId = :invoiceId")
     abstract suspend fun getPaymentsTotal(invoiceId: Long): Long
 
@@ -89,6 +118,13 @@ abstract class BusinessDao {
                 "Insufficient stock or product not found; invoice posting rolled back"
             }
             insertInvoiceLine(line.copy(id = 0, invoiceId = invoiceId))
+            insertStockMovement(StockMovementEntity(
+                productId = line.productId,
+                quantityDelta = Math.negateExact(line.quantity),
+                reason = "فروش فاکتور #$invoiceId",
+                occurredAtEpochDay = invoice.createdAtEpochDay,
+                invoiceId = invoiceId
+            ))
         }
         return invoiceId
     }
@@ -113,6 +149,13 @@ abstract class BusinessDao {
             check(increaseStock(line.productId, line.quantity) == 1) {
                 "Could not restore stock; cancellation rolled back"
             }
+            insertStockMovement(StockMovementEntity(
+                productId = line.productId,
+                quantityDelta = line.quantity,
+                reason = "برگشت موجودی بابت لغو فاکتور #$invoiceId",
+                occurredAtEpochDay = invoice.createdAtEpochDay,
+                invoiceId = invoiceId
+            ))
         }
         check(markInvoiceCancelled(invoiceId) == 1) { "Invoice state changed; cancellation rolled back" }
         return true

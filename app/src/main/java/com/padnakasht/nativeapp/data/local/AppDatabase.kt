@@ -12,9 +12,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProductEntity::class,
         InvoiceEntity::class,
         InvoiceLineEntity::class,
-        PaymentEntity::class
+        PaymentEntity::class,
+        StockMovementEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +23,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS stock_movements (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, productId INTEGER NOT NULL, quantityDelta INTEGER NOT NULL, reason TEXT NOT NULL, occurredAtEpochDay INTEGER NOT NULL, invoiceId INTEGER, FOREIGN KEY(productId) REFERENCES products(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_movements_productId ON stock_movements(productId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_stock_movements_invoiceId ON stock_movements(invoiceId)")
+            }
+        }
+
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE financial_transactions ADD COLUMN status TEXT NOT NULL DEFAULT 'POSTED'")
