@@ -10,6 +10,7 @@ import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
+import com.padnakasht.nativeapp.data.local.TransactionEntity
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import kotlinx.coroutines.runBlocking
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
@@ -26,6 +27,32 @@ class BusinessAccountingInstrumentedTest {
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
+    }
+
+    @Test
+    fun voidingLedgerTransactionPreservesAuditRecord() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "ledger-void-test.db")
+        try {
+            val dao = db.transactionDao()
+            val id = dao.insert(
+                TransactionEntity(
+                    amountMinor = 1250L,
+                    kind = "INCOME",
+                    category = "Audit test",
+                    note = "Retain original record",
+                    occurredAtEpochDay = 10L
+                )
+            )
+            assertEquals(1, dao.getAll().size)
+            assertEquals(1, dao.voidById(id))
+            assertTrue(dao.getAll().isEmpty())
+            assertEquals(1, dao.countAllRows())
+            assertEquals(0, dao.voidById(id))
+        } finally {
+            db.close()
+            context.getDatabasePath("ledger-void-test.db").delete()
+        }
     }
 
     @Test
