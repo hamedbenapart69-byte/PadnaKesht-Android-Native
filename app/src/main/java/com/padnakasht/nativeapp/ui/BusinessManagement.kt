@@ -46,8 +46,10 @@ fun BusinessManagement(repository: BusinessRepository) {
     var customerSearch by remember { mutableStateOf("") }
     var productName by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
+    var productCategory by remember { mutableStateOf("عمومی") }
     var stock by remember { mutableStateOf("0") }
     var price by remember { mutableStateOf("") }
+    var lowStockThreshold by remember { mutableStateOf("2") }
     var adjustmentDelta by remember { mutableStateOf("") }
     var adjustmentReason by remember { mutableStateOf("") }
     var selectedCustomer by remember { mutableStateOf<Long?>(null) }
@@ -95,25 +97,27 @@ fun BusinessManagement(repository: BusinessRepository) {
         Text("محصولات و موجودی", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(productName, { productName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام محصول") }, singleLine = true)
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
+        OutlinedTextField(productCategory, { productCategory = it; message = null }, Modifier.fillMaxWidth(), label = { Text("دسته‌بندی کالا") }, singleLine = true)
         OutlinedTextField(stock, { stock = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
         OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(lowStockThreshold, { lowStockThreshold = it.filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
                 isSaving = true
                 scope.launch {
-                    runCatching { repository.addProduct(productName, sku, stock.toLong(), price.toLong()) }
-                        .onSuccess { productName = ""; sku = ""; stock = "0"; price = ""; message = "محصول ثبت شد." }
+                    runCatching { repository.addProduct(productName, sku, stock.toLong(), price.toLong(), productCategory, lowStockThreshold.toLong()) }
+                        .onSuccess { productName = ""; sku = ""; productCategory = "عمومی"; stock = "0"; price = ""; lowStockThreshold = "2"; message = "محصول ثبت شد." }
                         .onFailure { message = "ثبت محصول ناموفق بود؛ نام، کد یکتا، موجودی و قیمت را بررسی کنید." }
                         .also { isSaving = false }
                 }
             },
-            enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null && !isSaving,
+            enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null && lowStockThreshold.toLongOrNull()?.let { it >= 0 } == true && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت محصول") }
         products.forEach { product ->
             TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • کد ${product.sku} • موجودی ${product.stockQuantity} • قیمت ${product.unitPriceMinor}")
+                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${product.stockQuantity} • قیمت ${product.unitPriceMinor}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
             }
         }
 
@@ -268,7 +272,8 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • مبلغ نهایی ${invoice.totalMinor}")
             if (invoice.discountMinor > 0L) Text("تخفیف: ${invoice.discountMinor}")
             invoice.dueAtEpochDay?.let { Text("سررسید: ${LocalDate.ofEpochDay(it)}") }
-            Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${if (invoice.status == "CANCELLED") 0L else balance}")
+            val overdue = invoice.status == "POSTED" && balance > 0L && invoice.dueAtEpochDay?.let { it < LocalDate.now().toEpochDay() } == true
+            Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (overdue) "سررسیدگذشته" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${if (invoice.status == "CANCELLED") 0L else balance}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->

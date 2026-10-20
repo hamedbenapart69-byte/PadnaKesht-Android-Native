@@ -56,6 +56,30 @@ class BusinessAccountingInstrumentedTest {
     }
 
     @Test
+    fun productCategoryAndLowStockThresholdPersistLocally() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "product-threshold-test.db")
+        try {
+            val dao = db.businessDao()
+            val id = dao.insertProduct(ProductEntity(
+                name = "Walnut",
+                sku = "SKU-LOW-STOCK",
+                stockQuantity = 2,
+                unitPriceMinor = 100,
+                category = "خشکبار",
+                lowStockThreshold = 3
+            ))
+            val saved = dao.getProduct(id)!!
+            assertEquals("خشکبار", saved.category)
+            assertEquals(3L, saved.lowStockThreshold)
+            assertTrue(saved.stockQuantity <= saved.lowStockThreshold)
+        } finally {
+            db.close()
+            context.getDatabasePath("product-threshold-test.db").delete()
+        }
+    }
+
+    @Test
     fun postingInvoiceChangesStockAndCancellationRestoresIt() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "business-atomic-test.db")

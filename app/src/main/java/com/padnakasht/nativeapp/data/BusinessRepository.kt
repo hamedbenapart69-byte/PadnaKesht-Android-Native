@@ -21,12 +21,27 @@ class BusinessRepository(private val dao: BusinessDao) {
         return dao.insertCustomer(CustomerEntity(name = name.trim(), phone = phone.trim(), notes = notes.trim()))
     }
 
-    suspend fun addProduct(name: String, sku: String, stockQuantity: Long, unitPriceMinor: Long): Long {
+    suspend fun addProduct(
+        name: String,
+        sku: String,
+        stockQuantity: Long,
+        unitPriceMinor: Long,
+        category: String = "عمومی",
+        lowStockThreshold: Long = 0L
+    ): Long {
         require(name.isNotBlank()) { "Product name is required" }
         require(sku.isNotBlank()) { "SKU is required" }
         require(stockQuantity >= 0) { "Stock cannot be negative" }
         require(unitPriceMinor >= 0) { "Price cannot be negative" }
-        return dao.insertProduct(ProductEntity(name = name.trim(), sku = sku.trim(), stockQuantity = stockQuantity, unitPriceMinor = unitPriceMinor))
+        require(lowStockThreshold >= 0) { "Low-stock threshold cannot be negative" }
+        return dao.insertProduct(ProductEntity(
+            name = name.trim(),
+            sku = sku.trim(),
+            stockQuantity = stockQuantity,
+            unitPriceMinor = unitPriceMinor,
+            category = category.trim().ifBlank { "عمومی" },
+            lowStockThreshold = lowStockThreshold
+        ))
     }
 
     suspend fun createInvoice(

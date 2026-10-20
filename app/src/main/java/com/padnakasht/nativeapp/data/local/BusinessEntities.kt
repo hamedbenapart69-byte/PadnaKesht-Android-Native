@@ -20,12 +20,15 @@ data class ProductEntity(
     val name: String,
     val sku: String,
     val stockQuantity: Long,
-    val unitPriceMinor: Long
+    val unitPriceMinor: Long,
+    @ColumnInfo(defaultValue = "'عمومی'") val category: String = "عمومی",
+    @ColumnInfo(defaultValue = "0") val lowStockThreshold: Long = 0
 ) {
     init {
         require(name.isNotBlank())
         require(stockQuantity >= 0)
         require(unitPriceMinor >= 0)
+        require(lowStockThreshold >= 0)
     }
 }
 
