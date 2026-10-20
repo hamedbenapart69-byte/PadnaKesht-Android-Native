@@ -22,6 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import androidx.room.Room
 import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
+import com.padnakasht.nativeapp.ui.PinGate
 import net.sqlcipher.database.SupportFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
@@ -54,6 +56,10 @@ class MainActivity : ComponentActivity() {
         val repository = TransactionRepository(db.transactionDao())
         setContent {
             MaterialTheme {
+                var authenticated by remember { mutableStateOf(false) }
+                if (!authenticated) {
+                    PinGate(applicationContext) { authenticated = true }
+                } else {
                 val vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(repository))
                 val transactions by vm.transactions.collectAsState()
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
@@ -129,6 +135,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
                 }
             }
         }
