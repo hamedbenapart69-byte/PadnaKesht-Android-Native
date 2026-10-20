@@ -6,6 +6,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,22 +26,27 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.room.Room
 import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
+import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.sqlcipher.database.SupportFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
 import com.padnakasht.nativeapp.domain.TransactionKind
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -94,6 +100,30 @@ class MainActivity : FragmentActivity() {
                 val vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(repository))
                 val transactions by vm.transactions.collectAsState()
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
+                var reportMessage by remember { mutableStateOf<String?>(null) }
+                val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/pdf")
+                ) { uri ->
+                    if (uri != null) lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { FinancialReportExporter.writePdf(contentResolver, uri, transactions) }
+                        }
+                        reportMessage = if (result.isSuccess) "گزارش PDF ذخیره شد." else "ساخت PDF ناموفق بود."
+                    }
+                }
+                val xlsxLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                ) { uri ->
+                    if (uri != null) lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val output = contentResolver.openOutputStream(uri) ?: error("Cannot open XLSX destination")
+                                output.use { FinancialReportExporter.writeXlsx(it, transactions) }
+                            }
+                        }
+                        reportMessage = if (result.isSuccess) "گزارش Excel ذخیره شد." else "ساخت Excel ناموفق بود."
+                    }
+                }
                 var amount by remember { mutableStateOf("") }
                 var category by remember { mutableStateOf("") }
                 var note by remember { mutableStateOf("") }
@@ -148,6 +178,11 @@ class MainActivity : FragmentActivity() {
                             }
                         ) { Text("ثبت تراکنش") }
                         if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }) { Text("خروجی PDF") }
+                            Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }) { Text("خروجی Excel") }
+                        }
+                        if (reportMessage != null) Text(reportMessage!!)
                         Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge)
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(transactions, key = { it.id }) { item ->
