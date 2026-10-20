@@ -49,4 +49,16 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_2
-          script: gradle connectedDebugAndroidTest
+          script: |
+            gradle connectedDebugAndroidTest || TEST_RESULT=$?
+            mkdir -p screenshots
+            adb pull /sdcard/Android/data/com.padnakasht.nativeapp/files/. screenshots/ || true
+            exit ${TEST_RESULT:-0}
+      - name: Upload emulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: padnakasht-emulator-screenshots
+          path: screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 14

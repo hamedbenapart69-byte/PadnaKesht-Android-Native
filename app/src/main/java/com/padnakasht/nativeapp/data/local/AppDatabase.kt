@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InvoiceLineEntity::class,
         PaymentEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +22,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE financial_transactions ADD COLUMN status TEXT NOT NULL DEFAULT 'POSTED'")
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE invoices ADD COLUMN discountMinor INTEGER NOT NULL DEFAULT 0")

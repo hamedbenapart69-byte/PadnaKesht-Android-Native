@@ -12,7 +12,8 @@ data class TransactionEntity(
     val kind: String,
     val category: String,
     val note: String,
-    val occurredAtEpochDay: Long
+    val occurredAtEpochDay: Long,
+    val status: String = "POSTED"
 ) {
     fun toDomain() = FinancialTransaction(
         id = id,

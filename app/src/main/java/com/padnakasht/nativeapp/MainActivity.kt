@@ -93,7 +93,7 @@ class MainActivity : FragmentActivity() {
         val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
         val factory = SupportOpenHelperFactory(passphrase)
         val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
             .openHelperFactory(factory)
             .build()
         val repository = TransactionRepository(db.transactionDao())
@@ -304,9 +304,9 @@ class MainActivity : FragmentActivity() {
                 if (pendingDeleteId != null) {
                     AlertDialog(
                         onDismissRequest = { pendingDeleteId = null },
-                        title = { Text("حذف تراکنش؟") },
-                        text = { Text("این عملیات رکورد را از دفتر مالی حذف می‌کند. اگر تراکنش بخشی از سوابق حسابداری است، پیش از ادامه مطمئن شوید.") },
-                        confirmButton = { TextButton(onClick = { pendingDeleteId?.let(vm::removeTransaction); pendingDeleteId = null }) { Text("حذف تراکنش") } },
+                        title = { Text("ابطال تراکنش؟") },
+                        text = { Text("تراکنش از گزارش‌های فعال خارج می‌شود، اما برای حفظ سابقه در پایگاه داده باقی می‌ماند.") },
+                        confirmButton = { TextButton(onClick = { pendingDeleteId?.let(vm::removeTransaction); pendingDeleteId = null }) { Text("ابطال تراکنش") } },
                         dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("انصراف") } }
                     )
                 }
