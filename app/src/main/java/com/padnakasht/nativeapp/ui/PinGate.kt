@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -24,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.security.PinAuthStore
 
 @Composable
-fun PinGate(context: Context, onAuthenticated: () -> Unit) {
+fun PinGate(context: Context, biometricAvailable: Boolean = false, onBiometricRequested: () -> Unit = {}, onAuthenticated: () -> Unit) {
     val store = remember(context) { PinAuthStore(context.applicationContext) }
     val setupRequired = remember(store) { !store.isConfigured() }
     var pin by remember { mutableStateOf("") }
@@ -79,6 +80,11 @@ fun PinGate(context: Context, onAuthenticated: () -> Unit) {
                     }
                 }
             ) { Text(if (setupRequired) "ایجاد PIN و ادامه" else "ورود") }
+            if (!setupRequired && biometricAvailable) {
+                OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onBiometricRequested) {
+                    Text("ورود با اثر انگشت")
+                }
+            }
             if (message != null) Text(message!!, color = MaterialTheme.colorScheme.error)
         }
     }
