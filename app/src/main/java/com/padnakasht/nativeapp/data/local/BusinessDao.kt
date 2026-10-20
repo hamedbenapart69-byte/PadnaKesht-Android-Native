@@ -72,7 +72,7 @@ abstract class BusinessDao {
     abstract fun observeSalesReturns(invoiceId: Long): Flow<List<SalesReturnEntity>>
 
     @Insert
-    abstract suspend fun insertSalesReturn(salesReturn: SalesReturnEntity)
+    abstract suspend fun insertSalesReturn(salesReturn: SalesReturnEntity): Long
 
     @Insert
     abstract suspend fun insertInvoice(invoice: InvoiceEntity): Long

@@ -12,6 +12,7 @@ import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
 import com.padnakasht.nativeapp.data.local.TransactionEntity
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.junit.Assert.assertEquals
@@ -95,9 +96,7 @@ class BusinessAccountingInstrumentedTest {
             dao.recordReturn(invoiceId, lineId, 1, "کالای آسیب‌دیده", 11)
             assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
             assertEquals(100L, dao.getReturnsTotal(invoiceId))
-            assertEquals(200L, dao.observeCustomerBalance(customerId).let { flow ->
-                kotlinx.coroutines.flow.first(flow)
-            })
+            assertEquals(200L, dao.observeCustomerBalance(customerId).first())
             dao.recordReturn(invoiceId, lineId, 2, "برگشت کامل باقی‌مانده", 12)
             assertEquals(4L, dao.getProduct(productId)?.stockQuantity)
             assertEquals(300L, dao.getReturnsTotal(invoiceId))
