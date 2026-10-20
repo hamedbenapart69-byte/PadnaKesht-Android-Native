@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Card
@@ -32,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -97,7 +100,7 @@ class MainActivity : FragmentActivity() {
         val businessRepository = BusinessRepository(db.businessDao())
         setContent {
             val darkTheme = isSystemInDarkTheme()
-            MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
+            MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(primary = Color(0xFF176B5B), secondary = Color(0xFFC1843D), background = Color(0xFFF3F6F5), surface = Color.White, error = Color(0xFFB3261E))) {
                 var authenticated by remember { mutableStateOf(false) }
                 if (!authenticated) {
                     PinGate(
@@ -141,82 +144,171 @@ class MainActivity : FragmentActivity() {
                 var error by remember { mutableStateOf<String?>(null) }
                 var showCharts by remember { mutableStateOf(false) }
 
-                Surface(Modifier.fillMaxSize()) {
+                var activeSection by remember { mutableStateOf("overview") }
+                var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     LazyColumn(
-                        Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium)
-                                Text("دفتر مالی آفلاین", style = MaterialTheme.typography.titleMedium)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
-                                        Text("درآمد"); Text(summary.incomeMinor.toString(), style = MaterialTheme.typography.titleLarge)
-                                    } }
-                                    Card(Modifier.weight(1f)) { Column(Modifier.padding(12.dp)) {
-                                        Text("هزینه"); Text(summary.expenseMinor.toString(), style = MaterialTheme.typography.titleLarge)
-                                    } }
+                            Card(
+                                Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                                    Text("مدیریت مالی کسب‌وکار • آفلاین و امن", style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                                    Text("اطلاعات روی همین دستگاه نگهداری می‌شود", style = MaterialTheme.typography.bodySmall, color = Color.White)
                                 }
-                                Text("خالص: ${summary.netMinor}", style = MaterialTheme.typography.titleMedium)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { kind = TransactionKind.INCOME }) { Text(if (kind == TransactionKind.INCOME) "✓ درآمد" else "درآمد") }
-                                    Button(onClick = { kind = TransactionKind.EXPENSE }) { Text(if (kind == TransactionKind.EXPENSE) "✓ هزینه" else "هزینه") }
-                                }
-                                OutlinedTextField(
-                                    value = amount, onValueChange = { amount = it.filter(Char::isDigit); error = null },
-                                    modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ به واحد خرد پول") }, singleLine = true
-                                )
-                                OutlinedTextField(
-                                    value = category, onValueChange = { category = it; error = null },
-                                    modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی (اختیاری)") }, singleLine = true
-                                )
-                                OutlinedTextField(
-                                    value = note, onValueChange = { note = it },
-                                    modifier = Modifier.fillMaxWidth(), label = { Text("توضیحات (اختیاری)") }, singleLine = true
-                                )
-                                Button(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = {
-                                        val parsed = amount.toLongOrNull()
-                                        if (parsed == null || parsed <= 0L) {
-                                            error = "مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد."
-                                        } else {
-                                            val finalCategory = category.trim().ifBlank { OfflineInsights.categorize(note) }
-                                            vm.addTransaction(parsed, kind, finalCategory, note.trim())
-                                            amount = ""; category = ""; note = ""; error = null
-                                        }
-                                    }
-                                ) { Text("ثبت تراکنش") }
-                                if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }) { Text("خروجی PDF") }
-                                    Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }) { Text("خروجی Excel") }
-                                }
-                                Button(onClick = { showCharts = !showCharts }) {
-                                    Text(if (showCharts) "بستن نمودارها" else "نمایش نمودارهای مالی")
-                                }
-                                if (reportMessage != null) Text(reportMessage!!)
-                                Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge)
                             }
                         }
-                        if (showCharts) item { FinancialCharts(transactions) }
-                        item { BusinessManagement(businessRepository) }
-                        items(transactions, key = { it.id }) { item ->
-                            Card(Modifier.fillMaxWidth()) {
-                                Row(
-                                    Modifier.fillMaxWidth().padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text("${item.category} — ${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}")
-                                        if (item.note.isNotBlank()) Text(item.note)
+                        item {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
+                                    if (activeSection == section) {
+                                        Button(onClick = { activeSection = section }, modifier = Modifier.weight(1f)) { Text(label) }
+                                    } else {
+                                        TextButton(onClick = { activeSection = section }, modifier = Modifier.weight(1f)) { Text(label) }
                                     }
-                                    TextButton(onClick = { vm.removeTransaction(item.id) }) { Text("حذف") }
+                                }
+                            }
+                        }
+                        if (activeSection == "overview") {
+                            item {
+                                Text("خلاصه مالی", style = MaterialTheme.typography.titleLarge)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
+                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
+                                            Text(summary.incomeMinor.toString(), style = MaterialTheme.typography.titleLarge, color = Color(0xFF145C48))
+                                        }
+                                    }
+                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
+                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
+                                            Text(summary.expenseMinor.toString(), style = MaterialTheme.typography.titleLarge, color = Color(0xFF9B3028))
+                                        }
+                                    }
+                                }
+                            }
+                            item {
+                                Card(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
+                                        Text(summary.netMinor.toString(), style = MaterialTheme.typography.headlineMedium, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            item {
+                                Card(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Text("ثبت سریع تراکنش", style = MaterialTheme.typography.titleLarge)
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            if (kind == TransactionKind.INCOME) Button(onClick = { kind = TransactionKind.INCOME }, modifier = Modifier.weight(1f)) { Text("＋ درآمد") }
+                                            else TextButton(onClick = { kind = TransactionKind.INCOME }, modifier = Modifier.weight(1f)) { Text("＋ درآمد") }
+                                            if (kind == TransactionKind.EXPENSE) Button(onClick = { kind = TransactionKind.EXPENSE }, modifier = Modifier.weight(1f)) { Text("− هزینه") }
+                                            else TextButton(onClick = { kind = TransactionKind.EXPENSE }, modifier = Modifier.weight(1f)) { Text("− هزینه") }
+                                        }
+                                        OutlinedTextField(
+                                            value = amount, onValueChange = { amount = it.filter(Char::isDigit); error = null },
+                                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (واحد خرد پول)") }, singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = category, onValueChange = { category = it; error = null },
+                                            modifier = Modifier.fillMaxWidth(), label = { Text("دسته‌بندی") }, singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = note, onValueChange = { note = it },
+                                            modifier = Modifier.fillMaxWidth(), label = { Text("شرح (اختیاری)") }, singleLine = true
+                                        )
+                                        Button(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onClick = {
+                                                val parsed = amount.toLongOrNull()
+                                                if (parsed == null || parsed <= 0L) error = "مبلغ باید عدد صحیح بزرگ‌تر از صفر باشد."
+                                                else {
+                                                    vm.addTransaction(parsed, kind, category.trim().ifBlank { OfflineInsights.categorize(note) }, note.trim())
+                                                    amount = ""; category = ""; note = ""; error = null
+                                                }
+                                            }
+                                        ) { Text("ذخیره تراکنش") }
+                                        if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
+                            item { Text("تراکنش‌های اخیر", style = MaterialTheme.typography.titleLarge) }
+                            if (transactions.isEmpty()) {
+                                item {
+                                    Card(Modifier.fillMaxWidth()) {
+                                        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                            Text("هنوز تراکنشی ثبت نشده", style = MaterialTheme.typography.titleMedium)
+                                            Text("با ثبت اولین درآمد یا هزینه، خلاصه مالی اینجا نمایش داده می‌شود.", style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                            } else {
+                                items(transactions.take(5), key = { "recent-${it.id}" }) { item ->
+                                    Card(Modifier.fillMaxWidth()) {
+                                        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text(item.category, style = MaterialTheme.typography.titleMedium)
+                                                Text(LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                if (item.note.isNotBlank()) Text(item.note, style = MaterialTheme.typography.bodyMedium)
+                                            }
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}", style = MaterialTheme.typography.titleMedium, color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (activeSection == "business") {
+                            item {
+                                Text("فروش، مشتریان و کالاها", style = MaterialTheme.typography.titleLarge)
+                                Text("ثبت‌های فاکتور و انبار در پایگاه داده محلی ذخیره می‌شوند.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            item { BusinessManagement(businessRepository) }
+                        } else {
+                            item { Text("گزارش و تحلیل", style = MaterialTheme.typography.titleLarge) }
+                            item { FinancialCharts(transactions) }
+                            item {
+                                Card(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Text("خروجی گزارش دفتر مالی", style = MaterialTheme.typography.titleMedium)
+                                        Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
+                                        Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
+                                        if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                            item { Text("تمام تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
+                            if (transactions.isEmpty()) item { Text("داده‌ای برای گزارش وجود ندارد.") }
+                            items(transactions, key = { "ledger-${it.id}" }) { item ->
+                                Card(Modifier.fillMaxWidth()) {
+                                    Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text(item.category, style = MaterialTheme.typography.titleMedium)
+                                            Text(LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall)
+                                            if (item.note.isNotBlank()) Text(item.note)
+                                        }
+                                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}", color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                            TextButton(onClick = { pendingDeleteId = item.id }) { Text("حذف") }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+                }
+                if (pendingDeleteId != null) {
+                    AlertDialog(
+                        onDismissRequest = { pendingDeleteId = null },
+                        title = { Text("حذف تراکنش؟") },
+                        text = { Text("این عملیات رکورد را از دفتر مالی حذف می‌کند. اگر تراکنش بخشی از سوابق حسابداری است، پیش از ادامه مطمئن شوید.") },
+                        confirmButton = { TextButton(onClick = { pendingDeleteId?.let(vm::removeTransaction); pendingDeleteId = null }) { Text("حذف تراکنش") } },
+                        dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("انصراف") } }
+                    )
                 }
 
                 }
