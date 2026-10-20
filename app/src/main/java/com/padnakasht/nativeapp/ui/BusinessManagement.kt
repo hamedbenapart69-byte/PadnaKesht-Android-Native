@@ -14,7 +14,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -27,10 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
-import com.padnakasht.nativeapp.data.local.CustomerEntity
-import com.padnakasht.nativeapp.data.local.ProductEntity
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 private data class DraftLine(val productId: Long, val productName: String, val quantity: Long, val unitPriceMinor: Long) {
     val total: Long get() = Math.multiplyExact(quantity, unitPriceMinor)
@@ -174,14 +170,12 @@ fun BusinessManagement(repository: BusinessRepository) {
 
 @Composable
 private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessRepository) {
-    var balance by remember(invoice.id) { mutableStateOf<Long?>(null) }
-    LaunchedEffect(invoice.id, invoice.totalMinor, invoice.status) {
-        balance = runCatching { repository.outstandingBalance(invoice.id) }.getOrNull()
-    }
+    val paid by repository.observePaymentsTotal(invoice.id).collectAsState(initial = 0L)
+    val balance = (invoice.totalMinor - paid).coerceAtLeast(0L)
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • جمع ${invoice.totalMinor}")
-            Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${balance?.toString() ?: "در حال محاسبه"}")
+            Text("وضعیت: ${if (invoice.status == "CANCELLED") "لغو شده" else if (balance == 0L) "تسویه" else "بدهکار"} • مانده: ${balance}")
         }
     }
 }
