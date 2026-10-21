@@ -156,15 +156,48 @@ class MainActivity : FragmentActivity() {
                         val invoicePayments = allPayments.filter { it.invoiceId == invoice.id }
                         val invoiceReturns = allReturns.filter { it.invoiceId == invoice.id }
                         val invoiceRefunds = allRefunds.filter { it.invoiceId == invoice.id }
-                        val paid = invoicePayments.fold(0L) { total, event -> Math.addExact(total, event.amountMinor) }
-                        val credits = invoiceReturns.fold(0L) { total, event -> Math.addExact(total, event.creditAmountMinor) }
-                        val refunded = invoiceRefunds.fold(0L) { total, event -> Math.addExact(total, event.amountMinor) }
-                        val balance = if (invoice.status == "POSTED") maxOf(0L, Math.subtractExact(Math.subtractExact(invoice.totalMinor, credits), paid)) else 0L
-                        if (invoice.status == "POSTED") rows += com.padnakasht.nativeapp.report.BusinessReportRow(invoice.createdAtEpochDay, "فاکتور قطعی", "فاکتور #${invoice.id}", customer, invoice.totalMinor, balance, "تخفیف: ${invoice.discountMinor}")
-                        else rows += com.padnakasht.nativeapp.report.BusinessReportRow(invoice.createdAtEpochDay, "فاکتور لغوشده", "فاکتور #${invoice.id}", customer, 0L, 0L, "مبلغ اصلی: ${invoice.totalMinor}")
-                        invoicePayments.forEach { payment -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(payment.paidAtEpochDay, "دریافتی", "رسید #${payment.id}", customer, payment.amountMinor, balance, payment.note.ifBlank { payment.method }) }
-                        invoiceReturns.forEach { returned -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(returned.returnedAtEpochDay, "مرجوعی", "برگشت #${returned.id}", customer, returned.creditAmountMinor, balance, returned.reason) }
-                        invoiceRefunds.forEach { refund -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(refund.refundedAtEpochDay, "بازپرداخت", "بازپرداخت #${refund.id}", customer, refund.amountMinor, balance, refund.reason) }
+                        val ledgerEvents = mutableListOf<Triple<com.padnakasht.nativeapp.report.BusinessReportRow, Int, Long>>()
+                        val posted = invoice.status == "POSTED"
+                        ledgerEvents += Triple(
+                            com.padnakasht.nativeapp.report.BusinessReportRow(
+                                invoice.createdAtEpochDay,
+                                if (posted) "فاکتور قطعی" else "فاکتور لغوشده",
+                                "فاکتور #${invoice.id}",
+                                customer,
+                                if (posted) invoice.totalMinor else 0L,
+                                0L,
+                                "تخفیف: ${invoice.discountMinor}" + if (posted) "" else "؛ مبلغ اصلی: ${invoice.totalMinor}"
+                            ),
+                            0,
+                            if (posted) invoice.totalMinor else 0L
+                        )
+                        invoicePayments.forEach { payment ->
+                            ledgerEvents += Triple(
+                                com.padnakasht.nativeapp.report.BusinessReportRow(payment.paidAtEpochDay, "دریافتی", "رسید #${payment.id}", customer, payment.amountMinor, 0L, payment.note.ifBlank { payment.method }),
+                                1,
+                                if (posted) -payment.amountMinor else 0L
+                            )
+                        }
+                        invoiceReturns.forEach { returned ->
+                            ledgerEvents += Triple(
+                                com.padnakasht.nativeapp.report.BusinessReportRow(returned.returnedAtEpochDay, "مرجوعی", "برگشت #${returned.id}", customer, returned.creditAmountMinor, 0L, returned.reason),
+                                2,
+                                if (posted) -returned.creditAmountMinor else 0L
+                            )
+                        }
+                        invoiceRefunds.forEach { refund ->
+                            ledgerEvents += Triple(
+                                com.padnakasht.nativeapp.report.BusinessReportRow(refund.refundedAtEpochDay, "بازپرداخت", "بازپرداخت #${refund.id}", customer, refund.amountMinor, 0L, refund.reason),
+                                3,
+                                0L
+                            )
+                        }
+                        var runningBalance = 0L
+                        ledgerEvents.sortedWith(compareBy<Triple<com.padnakasht.nativeapp.report.BusinessReportRow, Int, Long>> { it.first.dateEpochDay }.thenBy { it.second }.thenBy { it.first.reference })
+                            .forEach { (row, _, balanceDelta) ->
+                                runningBalance = maxOf(0L, Math.addExact(runningBalance, balanceDelta))
+                                rows += row.copy(balanceMinor = runningBalance)
+                            }
                     }
                     transactions.forEach { transaction ->
                         rows += com.padnakasht.nativeapp.report.BusinessReportRow(
