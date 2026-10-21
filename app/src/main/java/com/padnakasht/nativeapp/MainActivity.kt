@@ -314,7 +314,7 @@ class MainActivity : FragmentActivity() {
                                             if (item.note.isNotBlank()) Text(item.note)
                                         }
                                         Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatFinancialAmount(item.amountMinor)}", color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatToman(item.amountMinor)}", color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                             TextButton(onClick = { pendingDeleteId = item.id }) { Text("حذف") }
                                         }
                                     }
