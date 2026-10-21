@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -157,7 +158,7 @@ class MainActivity : FragmentActivity() {
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     LazyColumn(
-                        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).testTag("main-content-list"),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
@@ -215,13 +216,13 @@ class MainActivity : FragmentActivity() {
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatFinancialAmount(summary.incomeMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                                            Text(formatFinancialAmount(summary.incomeMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatFinancialAmount(summary.expenseMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
+                                            Text(formatFinancialAmount(summary.expenseMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -230,7 +231,7 @@ class MainActivity : FragmentActivity() {
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
-                                        Text(formatFinancialAmount(summary.netMinor), style = MaterialTheme.typography.headlineMedium, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        Text(formatFinancialAmount(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                         Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
