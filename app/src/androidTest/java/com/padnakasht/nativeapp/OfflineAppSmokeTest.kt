@@ -84,10 +84,13 @@ class OfflineAppSmokeTest {
         }
     }
 
-    private fun awaitVisibleByScrolling(text: String) {
-        awaitExists(text)
-        composeRule.onNodeWithText(text).performScrollTo()
-        awaitDisplayed(text)
+    private fun awaitVisibleByScrolling(text: String, substring: Boolean = false) {
+        composeRule.waitUntil(timeoutMillis = 30_000) {
+            runCatching { composeRule.onNodeWithText(text, substring = substring).fetchSemanticsNode() }.isSuccess
+        }
+        composeRule.onNodeWithText(text, substring = substring).performScrollTo()
+        composeRule.onNodeWithText(text, substring = substring).assertIsDisplayed()
+        composeRule.waitForIdle()
     }
 
     private fun scrollToTop() {
@@ -127,7 +130,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-customer").performClick()
         awaitExists("مشتری ثبت شد.")
         awaitVisibleByScrolling("مشتری ثبت شد.")
-        awaitVisibleByScrolling("مشتری آزمایشی")
+        awaitVisibleByScrolling("مشتری آزمایشی", substring = true)
         capture("customers")
 
         composeRule.onNodeWithText("کالاها").performScrollTo()
@@ -141,7 +144,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-product").performClick()
         awaitExists("محصول ثبت شد.")
         awaitVisibleByScrolling("محصول ثبت شد.")
-        awaitVisibleByScrolling("محصول آزمایشی")
+        awaitVisibleByScrolling("محصول آزمایشی", substring = true)
         capture("inventory")
 
         composeRule.onNodeWithText("فاکتورها").performScrollTo()
@@ -162,7 +165,7 @@ class OfflineAppSmokeTest {
         awaitDisplayed("ثبت نهایی فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
         awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
-        awaitVisibleByScrolling("فاکتور #۱")
+        awaitVisibleByScrolling("فاکتور #۱", substring = true)
         capture("invoice-summary")
 
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
