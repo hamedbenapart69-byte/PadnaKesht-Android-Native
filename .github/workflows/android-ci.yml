@@ -90,6 +90,28 @@ jobs:
           test -s /tmp/release-check.jks
           keytool -list -keystore /tmp/release-check.jks -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" >/dev/null
           rm -f /tmp/release-check.jks
+      - name: Validate release signing configuration
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$RELEASE_KEYSTORE_BASE64" ]] || missing+=("RELEASE_KEYSTORE_BASE64")
+          [[ -n "$RELEASE_STORE_PASSWORD" ]] || missing+=("RELEASE_STORE_PASSWORD")
+          [[ -n "$RELEASE_KEY_ALIAS" ]] || missing+=("RELEASE_KEY_ALIAS")
+          [[ -n "$RELEASE_KEY_PASSWORD" ]] || missing+=("RELEASE_KEY_PASSWORD")
+          if (( ${#missing[@]} > 0 )); then
+            printf '::warning::Release signing unavailable; missing repository Actions secrets: %s\\n' "${missing[*]}"
+            exit 0
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode >/tmp/release-check.jks
+          test -s /tmp/release-check.jks
+          keytool -list -keystore /tmp/release-check.jks -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" >/dev/null
+          rm -f /tmp/release-check.jks
       # A release is published only when a newly rotated signing key is configured in GitHub Actions secrets.
       - name: Build signed release APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
@@ -113,8 +135,13 @@ jobs:
           test -s "$APK"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee release-verify.txt
-          "$BT/aapt" dump badging "$APK" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^application-label:" | tee -a release-verify.txt
-          cp "$APK" padnakesht-release.apk
+          BADGING=$("$BT/aapt" dump badging "$APK")
+          printf '%s\\n' "$BADGING" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^application-label:" | tee -a release-verify.txt
+          grep -q "^package: name='com.padnakasht.nativeapp' versionCode='[0-9][0-9]*' versionName='0.2.0'" <<<"$BADGING"
+          grep -q "^sdkVersion:'26'" <<<"$BADGING"
+          grep -q "^targetSdkVersion:'35'" <<<"$BADGING"
+          grep -q "Signer #1 certificate SHA-256 digest:" release-verify.txt
+          cp "$APK" padnakesht-release.apk"
           sha256sum padnakesht-release.apk | tee padnakesht-release.apk.sha256
       - name: Publish GitHub Release with the verified APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
@@ -131,5 +158,6 @@ jobs:
       - name: Explain release publication was skipped
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED != 'true'
         run: |
-          echo "::warning::Release APK publication skipped because rotated signing secrets are not configured."
-          echo "Unit tests, debug build, and emulator tests still run. Configure RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in repository Actions secrets after rotating the compromised key."
+          echo "::warning::Release APK publication skipped because one or more signing secrets are missing."
+          echo "The preceding validation step lists only missing secret names; secret values are never printed."
+          echo "Release signing requires RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD after the compromised key has been rotated."
