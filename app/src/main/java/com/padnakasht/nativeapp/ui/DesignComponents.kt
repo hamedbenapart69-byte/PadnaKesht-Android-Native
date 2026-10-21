@@ -2,6 +2,7 @@ package com.padnakasht.nativeapp.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ fun GlassPanel(
     val shape = RoundedCornerShape(24.dp)
     Column(
         modifier = modifier
+            .animateContentSize(animationSpec = spring(dampingRatio = 0.82f, stiffness = 420f))
             .shadow(8.dp, shape, ambientColor = Color(0x33116B55), spotColor = Color(0x22116B55))
             .clip(shape)
             .background(
@@ -71,6 +73,7 @@ fun PremiumBrandPanel(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(animationSpec = spring(dampingRatio = 0.82f, stiffness = 420f))
             .shadow(12.dp, shape, ambientColor = Color(0x44116B55), spotColor = Color(0x33116B55))
             .clip(shape)
             .background(

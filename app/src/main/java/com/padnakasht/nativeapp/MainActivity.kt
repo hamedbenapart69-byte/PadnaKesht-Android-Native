@@ -34,6 +34,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -157,6 +159,7 @@ class MainActivity : FragmentActivity() {
                 var error by remember { mutableStateOf<String?>(null) }
                 var showCharts by remember { mutableStateOf(false) }
 
+                val haptic = LocalHapticFeedback.current
                 var activeSection by remember { mutableStateOf("overview") }
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -174,7 +177,7 @@ class MainActivity : FragmentActivity() {
                                 listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
                                     androidx.compose.material3.FilterChip(
                                         selected = activeSection == section,
-                                        onClick = { activeSection = section },
+                                        onClick = { if (activeSection != section) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); activeSection = section } },
                                         label = { Text(label, maxLines = 1) },
                                         modifier = Modifier.weight(1f)
                                     )
