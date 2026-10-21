@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp
 
 import android.content.ContentValues
+import android.view.KeyEvent
 import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
@@ -52,6 +53,11 @@ class OfflineAppSmokeTest {
         } finally {
             bitmap.recycle()
         }
+    }
+
+    private fun hideKeyboard() {
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        composeRule.waitForIdle()
     }
 
     private fun awaitExists(text: String) {
@@ -110,6 +116,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("فروش و انبار").performClick()
         awaitDisplayed("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
+        hideKeyboard()
         composeRule.onNodeWithText("ثبت مشتری").performClick()
         awaitExists("مشتری ثبت شد.")
         capture("customers")
@@ -121,6 +128,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("کد یکتای محصول").performTextInput("CI-TEST-001")
         composeRule.onNodeWithText("موجودی اولیه").performTextInput("10")
         composeRule.onNodeWithText("قیمت واحد (واحد خرد پول)").performTextInput("100000")
+        hideKeyboard()
         composeRule.onNodeWithText("ثبت محصول").performClick()
         awaitExists("محصول ثبت شد.")
         capture("inventory")
