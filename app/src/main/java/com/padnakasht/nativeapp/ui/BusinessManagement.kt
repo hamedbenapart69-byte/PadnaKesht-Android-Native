@@ -65,6 +65,7 @@ fun BusinessManagement(repository: BusinessRepository) {
     var invoiceDueDate by remember { mutableStateOf("") }
     var paymentInvoice by remember { mutableStateOf("") }
     var paymentAmount by remember { mutableStateOf("") }
+    var paymentOperationKey by remember { mutableStateOf<String?>(null) }
     var returnInvoiceId by remember { mutableStateOf("") }
     var returnLineId by remember { mutableStateOf<Long?>(null) }
     var returnQuantity by remember { mutableStateOf("1") }
@@ -301,8 +302,8 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت نهایی فاکتور") }
 
         SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
-        OutlinedTextField(paymentInvoice, { paymentInvoice = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
-        OutlinedTextField(paymentAmount, { paymentAmount = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
+        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
         Button(
             onClick = {
                 val invoiceId = paymentInvoice.toLongOrNull()
@@ -311,9 +312,10 @@ fun BusinessManagement(repository: BusinessRepository) {
                 else if (isSaving) message = "عملیات قبلی هنوز در حال انجام است."
                 else {
                     isSaving = true
+                    val operationKey = paymentOperationKey ?: java.util.UUID.randomUUID().toString().also { paymentOperationKey = it }
                     scope.launch {
-                        runCatching { repository.receivePayment(invoiceId, amount) }
-                            .onSuccess { paymentAmount = ""; message = "دریافت ثبت شد." }
+                        runCatching { repository.receivePayment(invoiceId, amount, idempotencyKey = operationKey) }
+                            .onSuccess { paymentAmount = ""; paymentOperationKey = null; message = "دریافت ثبت شد." }
                             .onFailure { message = "ثبت دریافت ناموفق بود؛ مانده فاکتور را بررسی کنید." }
                             .also { isSaving = false }
                     }
