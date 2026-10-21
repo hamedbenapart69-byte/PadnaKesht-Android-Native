@@ -145,6 +145,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("مشتری آزمایشی").performClick()
         composeRule.onNodeWithText("انتخاب کالا", substring = true).performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
+        composeRule.onNodeWithText("افزودن قلم به فاکتور").performScrollTo()
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performClick()
         awaitVisibleByScrolling("قلم به سبد فاکتور اضافه شد.")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
