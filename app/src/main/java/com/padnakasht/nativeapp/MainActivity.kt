@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -57,6 +59,7 @@ import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.SectionHeading
 import com.padnakasht.nativeapp.ui.GlassPanel
 import com.padnakasht.nativeapp.ui.PremiumBrandPanel
+import com.padnakasht.nativeapp.ui.PadnaBottomNavigation
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
@@ -354,26 +357,15 @@ class MainActivity : FragmentActivity() {
                 var activeSection by remember { mutableStateOf("overview") }
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(Modifier.fillMaxSize()) {
                     LazyColumn(
-                        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).testTag("main-content-list"),
+                        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).padding(bottom = 92.dp).testTag("main-content-list"),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
                             com.padnakasht.nativeapp.ui.PremiumBrandPanel(
                                 dateLabel = JalaliDate.format(LocalDate.now())
                             )
-                        }
-                        item {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
-                                    androidx.compose.material3.FilterChip(
-                                        selected = activeSection == section,
-                                        onClick = { if (activeSection != section) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); activeSection = section } },
-                                        label = { Text(label, maxLines = 1) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
                         }
                         if (activeSection == "overview") {
                             item {
@@ -564,6 +556,15 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                         }
+                    }
+                    PadnaBottomNavigation(
+                        selectedSection = activeSection,
+                        onSectionSelected = { section ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            activeSection = section
+                        },
+                        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                    )
                     }
                 }
                 if (pendingDeleteId != null) {
