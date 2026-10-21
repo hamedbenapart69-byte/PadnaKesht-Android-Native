@@ -78,6 +78,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import androidx.lifecycle.lifecycleScope
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 class MainActivity : FragmentActivity() {
@@ -242,6 +248,69 @@ class MainActivity : FragmentActivity() {
                 }
 
                 var reportMessage by remember { mutableStateOf<String?>(null) }
+                var backupMessage by remember { mutableStateOf<String?>(null) }
+                val backupLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/octet-stream")
+                ) { uri ->
+                    if (uri != null) lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { }
+                                db.close()
+                                val source = getDatabasePath("padnakasht.db")
+                                val output = contentResolver.openOutputStream(uri) ?: error("Cannot open backup destination")
+                                output.use { destination -> FileInputStream(source).use { it.copyTo(destination) } }
+                            }
+                        }
+                        backupMessage = if (result.isSuccess) {
+                            recreate()
+                            "پشتیبان رمزگذاری‌شده ذخیره شد. این فایل فقط روی همین دستگاه و با همین نصب قابل بازیابی است."
+                        } else {
+                            recreate()
+                            "ساخت پشتیبان ناموفق بود: ${result.exceptionOrNull()?.message ?: "خطای ناشناخته"}"
+                        }
+                    }
+                }
+                val restoreLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri ->
+                    if (uri != null) lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val tempName = "padnakasht-restore-validation.db"
+                                val tempFile = getDatabasePath(tempName)
+                                tempFile.parentFile?.mkdirs()
+                                contentResolver.openInputStream(uri).use { input ->
+                                    requireNotNull(input) { "Cannot open backup file" }
+                                    FileOutputStream(tempFile).use { input.copyTo(it) }
+                                }
+                                val validation = Room.databaseBuilder(applicationContext, AppDatabase::class.java, tempName)
+                                    .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9)
+                                    .openHelperFactory(SupportOpenHelperFactory(passphrase))
+                                    .build()
+                                try {
+                                    validation.openHelper.writableDatabase.query("PRAGMA integrity_check").use { cursor ->
+                                        check(cursor.moveToFirst() && cursor.getString(0) == "ok") { "Backup database integrity check failed" }
+                                    }
+                                } finally {
+                                    validation.close()
+                                }
+                                db.close()
+                                val target = getDatabasePath("padnakasht.db")
+                                listOf(File(target.path + "-wal"), File(target.path + "-shm")).forEach { it.delete() }
+                                check(tempFile.copyTo(target, overwrite = true).exists()) { "Could not replace database" }
+                                tempFile.delete()
+                            }
+                        }
+                        backupMessage = if (result.isSuccess) {
+                            recreate()
+                            "بازیابی و بررسی سلامت پایگاه داده انجام شد."
+                        } else {
+                            recreate()
+                            "بازیابی انجام نشد؛ پایگاه دادهٔ فعلی حفظ می‌شود. ${result.exceptionOrNull()?.message ?: "خطای ناشناخته"}"
+                        }
+                    }
+                }
                 val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/pdf")
                 ) { uri ->
@@ -454,6 +523,15 @@ class MainActivity : FragmentActivity() {
                                         Text("گزارش کامل فروش و جریان نقدی", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
                                         Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = { backupLauncher.launch("padnakasht-encrypted-backup.db") },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) { Text("ساخت پشتیبان رمزگذاری‌شده") }
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3", "*/*")) },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) { Text("بازیابی پشتیبان") }
+                                        if (backupMessage != null) Text(backupMessage!!, color = MaterialTheme.colorScheme.primary)
                                         Text("خروجی شامل فاکتورها، پرداخت‌ها، مرجوعی‌ها، بازپرداخت‌ها، مانده‌ها و تاریخ شمسی است. دفتر درآمد/هزینهٔ عمومی همچنان در فهرست جداگانه نمایش داده می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
                                     }
