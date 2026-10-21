@@ -154,11 +154,11 @@ class OfflineAppSmokeTest {
         capture("invoice")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
-        capture("invoice-summary")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
         awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        capture("invoice-summary")
 
-        composeRule.onNodeWithText("گزارش‌ها").performScrollTo()
+        composeRule.onNodeWithText("پادناکِشت").performScrollTo()
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
