@@ -104,7 +104,7 @@ class OfflineAppSmokeTest {
                 composeRule.onNodeWithText("امنیت پادناکِشت").assertIsDisplayed()
             }.isFailure
         }
-        awaitDisplayed("ثبت سریع تراکنش")
+        composeRule.waitForIdle()
     }
 
     @Test
@@ -120,6 +120,10 @@ class OfflineAppSmokeTest {
         awaitDisplayed("خلاصه مالی")
         awaitDisplayed("پادناکِشت")
         capture("dashboard")
+        // The quick-entry panel is below the fold on a 1080x1920 emulator;
+        // assert visibility only after bringing the lazy-list item into view.
+        awaitVisibleByScrolling("ثبت سریع تراکنش")
+        capture("quick-transaction")
 
         composeRule.onNodeWithText("فروش و انبار").performScrollTo()
         composeRule.onNodeWithText("فروش و انبار").performClick()
