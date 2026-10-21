@@ -4,7 +4,6 @@ import android.content.ContentValues
 import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -58,7 +57,7 @@ class OfflineAppSmokeTest {
     private fun awaitExists(text: String) {
         try {
             composeRule.waitUntil(timeoutMillis = 30_000) {
-                runCatching { composeRule.onNodeWithText(text).assertExists() }.isSuccess
+                runCatching { composeRule.onNodeWithText(text).fetchSemanticsNode() }.isSuccess
             }
         } catch (e: Throwable) {
             composeRule.onRoot(useUnmergedTree = true).printToLog("SMOKE_TREE")
