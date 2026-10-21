@@ -49,6 +49,8 @@ import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
+import com.padnakasht.nativeapp.ui.formatFinancialAmount
+import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
@@ -63,8 +65,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.text.NumberFormat
-import java.util.Locale
 
 class MainActivity : FragmentActivity() {
     private fun isBiometricAvailable(): Boolean =
@@ -240,7 +240,7 @@ class MainActivity : FragmentActivity() {
                                             else TextButton(onClick = { kind = TransactionKind.EXPENSE }, modifier = Modifier.weight(1f)) { Text("− هزینه") }
                                         }
                                         OutlinedTextField(
-                                            value = amount, onValueChange = { amount = it.filter(Char::isDigit); error = null },
+                                            value = amount, onValueChange = { amount = normalizePersianDigits(it).filter(Char::isDigit); error = null },
                                             modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (واحد خرد پول)") }, singleLine = true
                                         )
                                         OutlinedTextField(
@@ -373,7 +373,3 @@ class LedgerViewModel(private val repository: TransactionRepository) : ViewModel
         }
     }
 }
-
-
-private fun formatFinancialAmount(value: Long): String =
-    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
