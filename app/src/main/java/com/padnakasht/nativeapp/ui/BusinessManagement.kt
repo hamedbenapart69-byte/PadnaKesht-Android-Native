@@ -192,7 +192,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(productLabel, style = MaterialTheme.typography.titleSmall)
-                        Text("${if (movement.quantityDelta > 0) "+" else ""}${movement.quantityDelta} • ${movement.reason}")
+                        Text("${if (movement.quantityDelta > 0) "+" else ""}${formatFinancialAmount(movement.quantityDelta)} • ${movement.reason}")
                         Text(JalaliDate.format(LocalDate.ofEpochDay(movement.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -402,13 +402,13 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             if (returns.isNotEmpty()) {
                 Text("سوابق برگشت کالا", style = MaterialTheme.typography.labelLarge)
                 returns.forEach { returned ->
-                    Text("برگشت ${returned.quantity} عدد • اعتبار ${returned.creditAmountMinor} • ${returned.reason}")
+                    Text("برگشت ${formatFinancialAmount(returned.quantity)} عدد • اعتبار ${formatFinancialAmount(returned.creditAmountMinor)} • ${returned.reason}")
                 }
             }
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
-                    Text("دریافت ${payment.amountMinor} • روز ثبت ${payment.paidAtEpochDay} • ${payment.method}")
+                    Text("دریافت ${formatFinancialAmount(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
                 }
             }
         }
@@ -432,7 +432,7 @@ private fun ReturnLinePicker(
         lines.forEach { line ->
             val productName = products.firstOrNull { it.id == line.productId }?.name ?: "کالای #${line.productId}"
             TextButton(onClick = { onSelect(line.id) }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${line.quantity} • شناسه قلم: ${line.id}")
+                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${formatFinancialAmount(line.quantity)} • شناسه قلم: ${formatFinancialAmount(line.id)}")
             }
         }
     }
@@ -449,6 +449,6 @@ private fun CustomerBalanceRow(
 ) {
     val balance by repository.observeCustomerBalance(customerId).collectAsState(initial = 0L)
     TextButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
-        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${balance}")
+        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatFinancialAmount(balance)}")
     }
 }
