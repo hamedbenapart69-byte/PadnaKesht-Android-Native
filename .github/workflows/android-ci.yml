@@ -114,12 +114,12 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee release-verify.txt
           BADGING=$("$BT/aapt" dump badging "$APK")
-          printf '%s\\n' "$BADGING" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^application-label:" | tee -a release-verify.txt
+          printf '%s\n' "$BADGING" | grep -E "^package:|^sdkVersion|^targetSdkVersion|^application-label:" | tee -a release-verify.txt
           grep -q "^package: name='com.padnakasht.nativeapp' versionCode='[0-9][0-9]*' versionName='0.2.0'" <<<"$BADGING"
           grep -q "^sdkVersion:'26'" <<<"$BADGING"
           grep -q "^targetSdkVersion:'35'" <<<"$BADGING"
           grep -q "Signer #1 certificate SHA-256 digest:" release-verify.txt
-          cp "$APK" padnakesht-release.apk"
+          cp "$APK" padnakesht-release.apk
           sha256sum padnakesht-release.apk | tee padnakesht-release.apk.sha256
       - name: Publish GitHub Release with the verified APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
