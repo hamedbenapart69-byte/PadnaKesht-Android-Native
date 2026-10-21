@@ -89,6 +89,13 @@ class OfflineAppSmokeTest {
         awaitDisplayed("ثبت مشتری")
         capture("customers")
 
+        composeRule.onNodeWithText("کالاها").performClick()
+        awaitDisplayed("ثبت محصول")
+        composeRule.onNodeWithText("ثبت محصول").performScrollTo()
+        capture("inventory")
+
+        composeRule.onNodeWithText("فاکتورها").performClick()
+        awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
         capture("invoice")

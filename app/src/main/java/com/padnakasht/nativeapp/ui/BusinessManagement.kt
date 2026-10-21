@@ -46,6 +46,7 @@ fun BusinessManagement(repository: BusinessRepository) {
     var customerName by remember { mutableStateOf("") }
     var customerPhone by remember { mutableStateOf("") }
     var customerSearch by remember { mutableStateOf("") }
+    var activeBusinessTab by remember { mutableStateOf("customers") }
     var productName by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
     var productCategory by remember { mutableStateOf("عمومی") }
@@ -71,6 +72,17 @@ fun BusinessManagement(repository: BusinessRepository) {
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         SectionHeading("مدیریت کسب‌وکار", "مشتری، کالا، فاکتور و گردش موجودی")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها").forEach { (tab, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = activeBusinessTab == tab,
+                    onClick = { activeBusinessTab = tab },
+                    label = { Text(label, maxLines = 1) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        if (activeBusinessTab == "customers") {
         SectionHeading("مشتریان", "ثبت و جست‌وجوی مشتریان و مانده حساب")
         OutlinedTextField(customerName, { customerName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام مشتری") }, singleLine = true)
         OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, singleLine = true)
@@ -100,6 +112,8 @@ fun BusinessManagement(repository: BusinessRepository) {
             )
         }
 
+        }
+        if (activeBusinessTab == "inventory") {
         SectionHeading("محصولات و موجودی", "قیمت‌گذاری، سطح هشدار و موجودی فعلی")
         OutlinedTextField(productName, { productName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام محصول") }, singleLine = true)
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
@@ -182,6 +196,8 @@ fun BusinessManagement(repository: BusinessRepository) {
             }
         }
 
+        }
+        if (activeBusinessTab == "invoices") {
         SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
         Text("مشتری و کالا را از فهرست بالا انتخاب کنید؛ سپس تعداد را به سبد اضافه کنید.")
         OutlinedTextField(quantity, { quantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
@@ -317,6 +333,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             enabled = selectedReturnInvoice != null && returnLineId != null && returnQuantity.toLongOrNull()?.let { it > 0 } == true && returnReason.isNotBlank() && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت برگشت کالا") }
+        }
         if (message != null) Text(message!!, color = if (message!!.contains("ناموفق") || message!!.contains("نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     }
 }
