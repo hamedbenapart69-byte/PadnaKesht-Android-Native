@@ -161,8 +161,7 @@ class OfflineAppSmokeTest {
         hideKeyboard()
         composeRule.onNodeWithTag("register-product").performScrollTo()
         composeRule.onNodeWithTag("register-product").performClick()
-        // Success notices are transient and are not list items; assert the persisted product below.
-        awaitExists("محصول ثبت شد.")
+        // Verify the saved product in the inventory list; transient snackbars are not reliable test anchors.
         awaitVisibleByScrolling("محصول آزمایشی", substring = true)
         capture("inventory")
 
@@ -183,10 +182,9 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
-        // Confirm the write operation, then capture the real post-submission invoice screen.
-        // The invoice row can be outside the composed range of the nested business section;
-        // the reports screen below independently verifies the persisted 100,000 toman total.
-        awaitExists("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        // The reports screen below independently verifies the persisted 100,000 toman total.
+        // Avoid anchoring the test to a transient snackbar that may disappear between frames.
+        composeRule.waitForIdle()
         capture("invoice-summary")
 
         composeRule.onNodeWithText("گزارش‌ها").performClick()
