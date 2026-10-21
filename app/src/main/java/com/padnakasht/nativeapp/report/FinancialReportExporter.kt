@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
+import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.domain.TransactionKind
 import java.io.OutputStream
 import java.time.LocalDate
@@ -41,8 +42,9 @@ object FinancialReportExporter {
                     for (i in start until end) {
                         val item = transactions[i]
                         val kind = if (item.kind == TransactionKind.INCOME) "درآمد" else "هزینه"
-                        val date = LocalDate.ofEpochDay(item.occurredAtEpochDay).toString()
-                        val line = "$date | $kind | ${item.category.take(18)} | ${item.amountMinor} | ${item.note.take(18)}"
+                        val date = JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay))
+                        val amount = item.amountMinor.toString().map { ch -> if (ch in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[ch - '0'] else ch }.joinToString("")
+                        val line = "$date | $kind | ${item.category.take(18)} | $amount | ${item.note.take(18)}"
                         canvas.drawText(line.take(100), 555f, y, paint)
                         y += 20f
                     }
