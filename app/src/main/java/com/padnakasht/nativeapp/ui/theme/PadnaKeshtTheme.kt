@@ -9,6 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
@@ -74,12 +75,12 @@ private val PadnaDarkColors = darkColorScheme(
 
 private val PadnaTypography = Typography().let { base ->
     base.copy(
-        headlineLarge = base.headlineLarge.copy(letterSpacing = (-0.4).dp),
-        headlineMedium = base.headlineMedium.copy(letterSpacing = (-0.2).dp),
-        titleLarge = base.titleLarge.copy(letterSpacing = 0.dp),
-        bodyLarge = base.bodyLarge.copy(lineHeight = 26.dp),
-        bodyMedium = base.bodyMedium.copy(lineHeight = 23.dp),
-        labelLarge = base.labelLarge.copy(letterSpacing = 0.1.dp)
+        headlineLarge = base.headlineLarge.copy(letterSpacing = (-0.4).sp),
+        headlineMedium = base.headlineMedium.copy(letterSpacing = (-0.2).sp),
+        titleLarge = base.titleLarge.copy(letterSpacing = 0.sp),
+        bodyLarge = base.bodyLarge.copy(lineHeight = 26.sp),
+        bodyMedium = base.bodyMedium.copy(lineHeight = 23.sp),
+        labelLarge = base.labelLarge.copy(letterSpacing = 0.1.sp)
     )
 }
 
