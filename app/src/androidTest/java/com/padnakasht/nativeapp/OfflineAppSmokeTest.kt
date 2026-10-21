@@ -140,7 +140,7 @@ class OfflineAppSmokeTest {
         awaitVisibleByScrolling("ثبت سریع تراکنش")
         capture("quick-transaction")
 
-        composeRule.onNodeWithText("فروش و انبار").performScrollTo()
+        // Primary navigation is persistent; it is intentionally outside the scrolling content.
         composeRule.onNodeWithText("فروش و انبار").performClick()
         awaitDisplayed("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
@@ -189,7 +189,6 @@ class OfflineAppSmokeTest {
         awaitExists("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
         capture("invoice-summary")
 
-        composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
