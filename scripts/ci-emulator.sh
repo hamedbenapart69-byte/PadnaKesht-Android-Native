@@ -7,7 +7,7 @@ test_result=${PIPESTATUS[0]}
 adb logcat -d > screenshots/emulator-logcat.txt 2>&1
 
 screenshot_result=0
-for name in dashboard business reports; do
+for name in dashboard customers invoice reports; do
   target="screenshots/padnakasht-${name}.png"
   device_path="/sdcard/Pictures/PadnaKeshtCI/padnakasht-${name}.png"
   if adb pull "$device_path" "$target" >/dev/null 2>&1 && test -s "$target" && file "$target" | grep -q 'PNG image data'; then
