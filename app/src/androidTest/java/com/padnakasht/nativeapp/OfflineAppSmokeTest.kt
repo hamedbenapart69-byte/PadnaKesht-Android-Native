@@ -192,7 +192,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
-        awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰")
+        awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰ تومان")
         capture("reports")
         // LazyColumn composes off-screen rows on demand; move to the export card first.
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(5)
