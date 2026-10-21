@@ -71,7 +71,7 @@ object FinancialReportExporter {
             rows += listOf("خلاصه", "خالص", "", summary.netMinor.toString(), "")
             transactions.forEach { item ->
                 rows += listOf(
-                    LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(),
+                    JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay)),
                     if (item.kind == TransactionKind.INCOME) "درآمد" else "هزینه",
                     item.category,
                     item.amountMinor.toString(),
