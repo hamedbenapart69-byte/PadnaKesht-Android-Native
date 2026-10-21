@@ -46,7 +46,7 @@ data class JalaliDate(val year: Int, val month: Int, val day: Int) {
 
         fun parse(value: String): LocalDate {
             val normalized = normalizeDigits(value.trim())
-            val match = Regex("""^(\\d{1,4})[/-](\\d{1,2})[/-](\\d{1,2})$""").matchEntire(normalized)
+            val match = Regex("""^(\d{1,4})[/-](\d{1,2})[/-](\d{1,2})$""").matchEntire(normalized)
                 ?: throw IllegalArgumentException("Date must use Jalali YYYY/MM/DD format")
             val year = match.groupValues[1].toInt()
             val month = match.groupValues[2].toInt()
