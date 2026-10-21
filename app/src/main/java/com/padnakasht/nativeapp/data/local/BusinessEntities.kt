@@ -109,7 +109,7 @@ data class InvoiceLineEntity(
         childColumns = ["invoiceId"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index(value = ["invoiceId"])]
+    indices = [Index(value = ["invoiceId"]), Index(value = ["idempotencyKey"], unique = true)]
 )
 data class PaymentEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -117,7 +117,8 @@ data class PaymentEntity(
     val amountMinor: Long,
     val paidAtEpochDay: Long,
     val method: String = "CASH",
-    val note: String = ""
+    val note: String = "",
+    val idempotencyKey: String? = null
 ) {
     init { require(amountMinor > 0) }
 }
