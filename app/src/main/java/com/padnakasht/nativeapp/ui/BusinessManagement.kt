@@ -56,6 +56,8 @@ fun BusinessManagement(repository: BusinessRepository) {
     var adjustmentDelta by remember { mutableStateOf("") }
     var adjustmentReason by remember { mutableStateOf("") }
     var selectedCustomer by remember { mutableStateOf<Long?>(null) }
+    var customerMenuExpanded by remember { mutableStateOf(false) }
+    var productMenuExpanded by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Long?>(null) }
     var quantity by remember { mutableStateOf("1") }
     var invoiceDiscount by remember { mutableStateOf("0") }
@@ -199,7 +201,45 @@ fun BusinessManagement(repository: BusinessRepository) {
         }
         if (activeBusinessTab == "invoices") {
         SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
-        Text("مشتری و کالا را از فهرست بالا انتخاب کنید؛ سپس تعداد را به سبد اضافه کنید.")
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { customerMenuExpanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("مشتری: " + (customers.firstOrNull { it.id == selectedCustomer }?.name ?: "انتخاب مشتری"))
+            }
+            androidx.compose.material3.DropdownMenu(
+                expanded = customerMenuExpanded,
+                onDismissRequest = { customerMenuExpanded = false }
+            ) {
+                customers.forEach { customer ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(customer.name) },
+                        onClick = { selectedCustomer = customer.id; customerMenuExpanded = false }
+                    )
+                }
+            }
+        }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { productMenuExpanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val selected = products.firstOrNull { it.id == selectedProduct }
+                Text("کالا: " + (selected?.let { it.name + " • موجودی " + it.stockQuantity + " • " + formatFinancialAmount(it.unitPriceMinor) } ?: "انتخاب کالا"))
+            }
+            androidx.compose.material3.DropdownMenu(
+                expanded = productMenuExpanded,
+                onDismissRequest = { productMenuExpanded = false }
+            ) {
+                products.forEach { product ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(product.name + " • موجودی " + product.stockQuantity + " • " + formatFinancialAmount(product.unitPriceMinor)) },
+                        onClick = { selectedProduct = product.id; productMenuExpanded = false }
+                    )
+                }
+            }
+        }
         OutlinedTextField(quantity, { quantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
         Button(
             onClick = {
