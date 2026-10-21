@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -21,24 +19,36 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Stable app-specific signing key so every release can update the previous install.
-    // NOTE: the key lives in the repository (no secret store is available here); see docs/STATUS.md.
-    val signingProps = Properties().apply {
-        file("signing.properties").inputStream().use { load(it) }
-    }
+    // Release signing material must be supplied by the CI secret store, never committed.
+    // Without configured secrets, local/CI release builds remain unsigned and must not be published.
+    val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
+    val releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+    val releaseKeystore = releaseKeystorePath?.let { file(it) }
+    val releaseSigningConfigured = releaseKeystore != null &&
+        releaseKeystore.isFile &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
     signingConfigs {
-        create("release") {
-            storeFile = file(signingProps.getProperty("storeFile"))
-            storePassword = signingProps.getProperty("storePassword")
-            keyAlias = signingProps.getProperty("keyAlias")
-            keyPassword = signingProps.getProperty("keyPassword")
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
     buildTypes {
         release {
             // Shrinking stays off until Room/SQLCipher keep rules are verified on a device.
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
