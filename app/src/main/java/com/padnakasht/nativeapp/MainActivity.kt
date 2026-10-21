@@ -297,8 +297,17 @@ class MainActivity : FragmentActivity() {
                                 }
                                 db.close()
                                 val target = getDatabasePath("padnakasht.db")
-                                listOf(File(target.path + "-wal"), File(target.path + "-shm")).forEach { it.delete() }
-                                check(tempFile.copyTo(target, overwrite = true).exists()) { "Could not replace database" }
+                                val staged = getDatabasePath("padnakasht-restore-staged.db")
+                                val previous = getDatabasePath("padnakasht-before-restore.db")
+                                tempFile.copyTo(staged, overwrite = true)
+                                listOf(File(target.path + "-wal"), File(target.path + "-shm")).forEach { check(!it.exists() || it.delete()) { "Could not clear database journal" } }
+                                previous.delete()
+                                if (target.exists()) check(target.renameTo(previous)) { "Could not preserve current database before restore" }
+                                if (!staged.renameTo(target)) {
+                                    if (previous.exists()) previous.renameTo(target)
+                                    error("Could not atomically replace database")
+                                }
+                                previous.delete()
                                 tempFile.delete()
                             }
                         }
