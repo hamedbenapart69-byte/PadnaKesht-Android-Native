@@ -108,6 +108,9 @@ class BusinessAccountingInstrumentedTest {
             }
             assertTrue(overReturnRejected)
             assertEquals(3, dao.getStockMovements().size)
+            assertTrue(dao.cancelInvoice(invoiceId))
+            assertEquals(4L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(0L, dao.getRefundsTotal(invoiceId))
         } finally {
             db.close()
             context.getDatabasePath("business-return-test.db").delete()
@@ -145,13 +148,11 @@ class BusinessAccountingInstrumentedTest {
                 rejected = true
             }
             assertTrue(rejected)
-            var cancellationRejected = false
-            try {
-                dao.cancelInvoice(secondInvoiceId)
-            } catch (_: IllegalArgumentException) {
-                cancellationRejected = true
-            }
-            assertTrue(cancellationRejected)
+            assertTrue(dao.cancelInvoice(secondInvoiceId))
+            assertEquals("CANCELLED", dao.getInvoice(secondInvoiceId)?.status)
+            assertEquals(50L, dao.getPaymentsTotal(secondInvoiceId))
+            assertEquals(50L, dao.getRefundsTotal(secondInvoiceId))
+            assertEquals(3L, dao.getProduct(productId)?.stockQuantity)
         } finally {
             db.close()
             context.getDatabasePath("business-atomic-test.db").delete()

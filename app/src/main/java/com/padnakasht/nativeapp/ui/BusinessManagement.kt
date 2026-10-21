@@ -388,6 +388,7 @@ fun BusinessManagement(repository: BusinessRepository) {
 private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessRepository) {
     val paid by repository.observePaymentsTotal(invoice.id).collectAsState(initial = 0L)
     val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
+    val refunds by repository.observeRefunds(invoice.id).collectAsState(initial = emptyList())
     val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
     val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
     GlassPanel(Modifier.fillMaxWidth()) {
@@ -414,6 +415,12 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
                     Text("دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                }
+            }
+            if (refunds.isNotEmpty()) {
+                Text("تاریخچه بازپرداخت‌ها", style = MaterialTheme.typography.labelLarge)
+                refunds.forEach { refund ->
+                    Text("بازپرداخت ${formatToman(refund.amountMinor)} • ${JalaliDate.format(LocalDate.ofEpochDay(refund.refundedAtEpochDay))} • ${refund.reason}")
                 }
             }
         }

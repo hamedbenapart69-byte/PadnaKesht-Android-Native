@@ -97,7 +97,7 @@ class BusinessRepository(private val dao: BusinessDao) {
             )
         )
 
-    suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId)
+    suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId, LocalDate.now().toEpochDay())
 
     fun observeInvoiceLines(invoiceId: Long) = dao.observeInvoiceLines(invoiceId)
 
@@ -112,6 +112,8 @@ class BusinessRepository(private val dao: BusinessDao) {
     fun observePaymentsTotal(invoiceId: Long) = dao.observePaymentsTotal(invoiceId)
 
     fun observePayments(invoiceId: Long) = dao.observePayments(invoiceId)
+
+    fun observeRefunds(invoiceId: Long) = dao.observeRefunds(invoiceId)
 
     fun observeCustomerBalance(customerId: Long) = dao.observeCustomerBalance(customerId)
 

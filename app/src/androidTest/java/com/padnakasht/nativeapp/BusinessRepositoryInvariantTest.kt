@@ -10,6 +10,7 @@ import com.padnakasht.nativeapp.data.local.CustomerEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -73,7 +74,7 @@ class BusinessRepositoryInvariantTest {
         }
     }
     @Test
-    fun invoiceWithPaymentCannotBeCancelledAndKeepsPaymentAuditAndStock() = runBlocking {
+    fun cancellingPartiallyPaidInvoiceRefundsCashAndPreservesReceiptAudit() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "repository-paid-cancel-test.db")
         try {
@@ -84,20 +85,19 @@ class BusinessRepositoryInvariantTest {
             )
             val repository = BusinessRepository(dao)
             val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
-            repository.receivePayment(invoiceId, 50, "partial payment")
+            val receiptId = repository.receivePayment(invoiceId, 50, "partial payment")
 
-            var rejected = false
-            try {
-                repository.cancelInvoice(invoiceId)
-            } catch (_: IllegalArgumentException) {
-                rejected = true
-            }
-
-            assertTrue("An invoice with a payment must not be cancelled without a refund workflow", rejected)
-            assertEquals("POSTED", dao.getInvoice(invoiceId)?.status)
+            assertTrue(repository.cancelInvoice(invoiceId))
+            assertEquals("CANCELLED", dao.getInvoice(invoiceId)?.status)
             assertEquals(50L, dao.getPaymentsTotal(invoiceId))
-            assertEquals(200L, repository.outstandingBalance(invoiceId))
-            assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(50L, dao.getRefundsTotal(invoiceId))
+            assertEquals(0L, repository.outstandingBalance(invoiceId))
+            assertEquals(3L, dao.getProduct(productId)?.stockQuantity)
+            assertEquals(receiptId, dao.observePayments(invoiceId).first().single().id)
+            assertEquals(1, dao.observeRefunds(invoiceId).first().size)
+            assertEquals(50L, dao.observeRefunds(invoiceId).first().single().amountMinor)
+            assertTrue(!repository.cancelInvoice(invoiceId))
+            assertEquals(50L, dao.getRefundsTotal(invoiceId))
         } finally {
             db.close()
             context.getDatabasePath("repository-paid-cancel-test.db").delete()

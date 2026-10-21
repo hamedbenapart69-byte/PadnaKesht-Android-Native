@@ -121,6 +121,18 @@ abstract class BusinessDao {
     @Query("SELECT * FROM payments WHERE invoiceId = :invoiceId ORDER BY paidAtEpochDay DESC, id DESC")
     abstract fun observePayments(invoiceId: Long): Flow<List<PaymentEntity>>
 
+    @Query("SELECT * FROM payments WHERE invoiceId = :invoiceId ORDER BY id")
+    abstract suspend fun getPaymentsForInvoice(invoiceId: Long): List<PaymentEntity>
+
+    @Insert
+    abstract suspend fun insertPaymentRefund(refund: PaymentRefundEntity): Long
+
+    @Query("SELECT * FROM payment_refunds WHERE invoiceId = :invoiceId ORDER BY refundedAtEpochDay DESC, id DESC")
+    abstract fun observeRefunds(invoiceId: Long): Flow<List<PaymentRefundEntity>>
+
+    @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payment_refunds WHERE invoiceId = :invoiceId")
+    abstract suspend fun getRefundsTotal(invoiceId: Long): Long
+
     @Query("SELECT * FROM payments WHERE idempotencyKey = :key LIMIT 1")
     abstract suspend fun getPaymentByIdempotencyKey(key: String): PaymentEntity?
 
@@ -180,23 +192,43 @@ abstract class BusinessDao {
     }
 
     @Transaction
-    open suspend fun cancelInvoice(invoiceId: Long): Boolean {
+    open suspend fun cancelInvoice(
+        invoiceId: Long,
+        occurredAtEpochDay: Long = java.time.LocalDate.now().toEpochDay()
+    ): Boolean {
         val invoice = getInvoice(invoiceId) ?: return false
         if (invoice.status != "POSTED") return false
-        require(getPaymentsTotal(invoiceId) == 0L) { "Invoice with recorded payments cannot be cancelled until refunds are recorded" }
-        require(getReturnsTotal(invoiceId) == 0L) { "Invoice with recorded returns cannot be cancelled; keep the return audit trail" }
+
+        // Preserve each original receipt and record its refund in the same transaction.
+        val payments = getPaymentsForInvoice(invoiceId)
+        payments.forEach { payment ->
+            insertPaymentRefund(PaymentRefundEntity(
+                invoiceId = invoiceId,
+                paymentId = payment.id,
+                amountMinor = payment.amountMinor,
+                refundedAtEpochDay = occurredAtEpochDay,
+                reason = "بازپرداخت بابت لغو فاکتور #$invoiceId",
+                idempotencyKey = "cancel-invoice-" + invoiceId + "-payment-" + payment.id
+            ))
+        }
+
+        // Returned quantities are already back in stock; restore only the remainder.
         val lines = getInvoiceLines(invoiceId)
         for (line in lines) {
-            check(increaseStock(line.productId, line.quantity) == 1) {
-                "Could not restore stock; cancellation rolled back"
+            val alreadyReturned = getReturnedQuantity(line.id)
+            val quantityToRestore = Math.subtractExact(line.quantity, alreadyReturned)
+            if (quantityToRestore > 0L) {
+                check(increaseStock(line.productId, quantityToRestore) == 1) {
+                    "Could not restore stock; cancellation rolled back"
+                }
+                insertStockMovement(StockMovementEntity(
+                    productId = line.productId,
+                    quantityDelta = quantityToRestore,
+                    reason = "برگشت موجودی بابت لغو فاکتور #$invoiceId",
+                    occurredAtEpochDay = occurredAtEpochDay,
+                    invoiceId = invoiceId
+                ))
             }
-            insertStockMovement(StockMovementEntity(
-                productId = line.productId,
-                quantityDelta = line.quantity,
-                reason = "برگشت موجودی بابت لغو فاکتور #$invoiceId",
-                occurredAtEpochDay = invoice.createdAtEpochDay,
-                invoiceId = invoiceId
-            ))
         }
         check(markInvoiceCancelled(invoiceId) == 1) { "Invoice state changed; cancellation rolled back" }
         return true
