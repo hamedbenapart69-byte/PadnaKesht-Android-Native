@@ -239,7 +239,9 @@ class BusinessAccountingInstrumentedTest {
             db.close()
             context.getDatabasePath("business-rollback-test.db").delete()
         }
-    }    @Test
+    }
+
+    @Test
     fun repeatedPaymentRequestWithSameIdempotencyKeyIsRecordedOnlyOnce() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "payment-idempotency-test.db")
