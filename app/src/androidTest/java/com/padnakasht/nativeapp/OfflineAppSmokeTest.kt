@@ -54,6 +54,17 @@ class OfflineAppSmokeTest {
         }
     }
 
+    private fun awaitExists(text: String) {
+        try {
+            composeRule.waitUntil(timeoutMillis = 30_000) {
+                runCatching { composeRule.onNodeWithText(text).assertExists() }.isSuccess
+            }
+        } catch (e: Throwable) {
+            composeRule.onRoot(useUnmergedTree = true).printToLog("SMOKE_TREE")
+            throw AssertionError("Text did not appear in time: $text", e)
+        }
+    }
+
     private fun awaitDisplayed(text: String) {
         try {
             composeRule.waitUntil(timeoutMillis = 30_000) {
@@ -64,6 +75,12 @@ class OfflineAppSmokeTest {
             composeRule.onRoot(useUnmergedTree = true).printToLog("SMOKE_TREE")
             throw AssertionError("Text was not displayed in time: $text", e)
         }
+    }
+
+    private fun awaitVisibleByScrolling(text: String) {
+        awaitExists(text)
+        composeRule.onNodeWithText(text).performScrollTo()
+        awaitDisplayed(text)
     }
 
     private fun awaitSecurityGateGone() {
@@ -94,20 +111,22 @@ class OfflineAppSmokeTest {
         awaitDisplayed("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         composeRule.onNodeWithText("ثبت مشتری").performClick()
-        awaitDisplayed("مشتری ثبت شد.")
-        composeRule.onNodeWithText("ثبت مشتری").performScrollTo()
+        awaitExists("مشتری ثبت شد.")
         capture("customers")
+        awaitVisibleByScrolling("مشتری ثبت شد.")
 
+        composeRule.onNodeWithText("کالاها").performScrollTo()
         composeRule.onNodeWithText("کالاها").performClick()
         composeRule.onNodeWithText("نام محصول").performTextInput("محصول آزمایشی")
         composeRule.onNodeWithText("کد یکتای محصول").performTextInput("CI-TEST-001")
         composeRule.onNodeWithText("موجودی اولیه").performTextInput("10")
         composeRule.onNodeWithText("قیمت واحد (واحد خرد پول)").performTextInput("100000")
         composeRule.onNodeWithText("ثبت محصول").performClick()
-        awaitDisplayed("محصول ثبت شد.")
-        composeRule.onNodeWithText("ثبت محصول").performScrollTo()
+        awaitExists("محصول ثبت شد.")
         capture("inventory")
+        awaitVisibleByScrolling("محصول ثبت شد.")
 
+        composeRule.onNodeWithText("فاکتورها").performScrollTo()
         composeRule.onNodeWithText("فاکتورها").performClick()
         awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithText("انتخاب مشتری").performClick()
@@ -115,17 +134,19 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("انتخاب کالا").performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performClick()
-        awaitDisplayed("قلم به سبد فاکتور اضافه شد.")
+        awaitVisibleByScrolling("قلم به سبد فاکتور اضافه شد.")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
         capture("invoice")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
-        awaitDisplayed("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
 
         composeRule.onNodeWithText("گزارش‌ها").performScrollTo()
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
-        awaitDisplayed("خروجی گزارش دفتر مالی")
+        awaitDisplayed("خلاصه فروش فاکتوری")
+        awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰")
+        awaitDisplayed("خروجی دفتر تراکنش‌های عمومی")
         capture("reports")
     }
 }

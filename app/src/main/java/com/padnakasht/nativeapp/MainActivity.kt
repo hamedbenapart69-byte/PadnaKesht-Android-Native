@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -114,6 +115,11 @@ class MainActivity : FragmentActivity() {
                 } else {
                 val vm: LedgerViewModel = viewModel(factory = LedgerViewModel.factory(repository))
                 val transactions by vm.transactions.collectAsState()
+                val businessInvoices by businessRepository.invoices.collectAsState(initial = emptyList())
+                val postedInvoices = remember(businessInvoices) { businessInvoices.filter { it.status == "POSTED" } }
+                val postedInvoiceTotal = remember(postedInvoices) {
+                    postedInvoices.fold(0L) { total, invoice -> Math.addExact(total, invoice.totalMinor) }
+                }
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
                 var reportMessage by remember { mutableStateOf<String?>(null) }
                 val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -150,7 +156,7 @@ class MainActivity : FragmentActivity() {
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     LazyColumn(
-                        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                        Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
@@ -296,14 +302,29 @@ class MainActivity : FragmentActivity() {
                             }
                             item { BusinessManagement(businessRepository) }
                         } else {
-                            item { SectionHeading("گزارش و تحلیل", "نمودارها و خروجی مبتنی بر تراکنش‌های ثبت‌شده") }
+                            item { SectionHeading("گزارش و تحلیل", "نمایش جداگانهٔ دفتر مالی عمومی و فروش فاکتوری") }
+                            item {
+                                Card(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("خلاصه فروش فاکتوری", style = MaterialTheme.typography.titleMedium)
+                                        if (postedInvoices.isEmpty()) {
+                                            Text("هنوز فاکتور قطعی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        } else {
+                                            Text("تعداد فاکتورهای قطعی: " + formatFinancialAmount(postedInvoices.size.toLong()))
+                                            Text("جمع مبلغ فاکتورهای قطعی: " + formatFinancialAmount(postedInvoiceTotal), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        Text("جمع فاکتورها پس از تخفیف و پیش از اعتبار برگشت کالا است.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                             item { FinancialCharts(transactions) }
                             item {
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Text("خروجی گزارش دفتر مالی", style = MaterialTheme.typography.titleMedium)
+                                        Text("خروجی دفتر تراکنش‌های عمومی", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
                                         Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
+                                        Text("فاکتورهای فروش در خلاصهٔ بالا نمایش داده می‌شوند؛ خروجی فایل فعلاً فقط دفتر تراکنش‌های عمومی را شامل می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
