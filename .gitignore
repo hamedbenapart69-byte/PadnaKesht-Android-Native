@@ -7,3 +7,9 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Local signing material must never be committed.
+app/signing.properties
+app/*.jks
+app/*.keystore
+app/release-upload.jks
