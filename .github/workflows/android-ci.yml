@@ -12,6 +12,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_SIGNING_CONFIGURED: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' && secrets.RELEASE_STORE_PASSWORD != '' && secrets.RELEASE_KEY_ALIAS != '' && secrets.RELEASE_KEY_PASSWORD != '' }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -66,13 +68,25 @@ jobs:
           path: screenshots/*
           if-no-files-found: warn
           retention-days: 14
-      # Release steps run only after unit tests and emulator tests have passed.
+      # A release is published only when a newly rotated signing key is configured in GitHub Actions secrets.
       - name: Build signed release APK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: bash scripts/ci-gradle.sh release assembleRelease
-      - name: Verify release APK signature, package and version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEYSTORE_PATH: app/release-upload.jks
         run: |
+          set -euo pipefail
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RELEASE_KEYSTORE_PATH"
+          chmod 600 "$RELEASE_KEYSTORE_PATH"
+          test -s "$RELEASE_KEYSTORE_PATH"
+          bash scripts/ci-gradle.sh release assembleRelease
+      - name: Verify release APK signature, package and version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
+        run: |
+          set -euo pipefail
           APK=app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
@@ -81,13 +95,19 @@ jobs:
           cp "$APK" padnakesht-release.apk
           sha256sum padnakesht-release.apk | tee padnakesht-release.apk.sha256
       - name: Publish GitHub Release with the verified APK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           TAG="v${VER}-build${{ github.run_number }}"
           gh release create "$TAG" padnakesht-release.apk padnakesht-release.apk.sha256 \
             --title "PadnaKesht ${VER} (build ${{ github.run_number }})" \
-            --notes "Signed release APK built after unit tests and emulator tests passed. SHA-256 is attached. Development release, not a final production release." \
+            --notes "Signed release APK built after unit tests and emulator tests passed. SHA-256 is attached. Release signing uses externally stored, rotated credentials." \
             --target "$GITHUB_SHA" --prerelease
+      - name: Explain release publication was skipped
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.RELEASE_SIGNING_CONFIGURED != 'true'
+        run: |
+          echo "::warning::Release APK publication skipped because rotated signing secrets are not configured."
+          echo "Unit tests, debug build, and emulator tests still run. Configure RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD in repository Actions secrets after rotating the compromised key."
