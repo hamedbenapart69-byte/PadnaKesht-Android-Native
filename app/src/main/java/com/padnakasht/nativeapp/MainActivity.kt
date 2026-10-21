@@ -50,6 +50,7 @@ import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
+import com.padnakasht.nativeapp.ui.formatToman
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.SectionHeading
 import com.padnakasht.nativeapp.ui.GlassPanel
@@ -187,13 +188,13 @@ class MainActivity : FragmentActivity() {
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatFinancialAmount(summary.incomeMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+                                            Text(formatToman(summary.incomeMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatFinancialAmount(summary.expenseMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
+                                            Text(formatToman(summary.expenseMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -202,7 +203,7 @@ class MainActivity : FragmentActivity() {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
-                                        Text(formatFinancialAmount(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        Text(formatToman(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                         Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
@@ -219,7 +220,7 @@ class MainActivity : FragmentActivity() {
                                         }
                                         OutlinedTextField(
                                             value = amount, onValueChange = { amount = normalizePersianDigits(it).filter(Char::isDigit); error = null },
-                                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (واحد خرد پول)") }, singleLine = true
+                                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (تومان)") }, singleLine = true
                                         )
                                         OutlinedTextField(
                                             value = category, onValueChange = { category = it; error = null },
@@ -263,7 +264,7 @@ class MainActivity : FragmentActivity() {
                                                 Text(JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 if (item.note.isNotBlank()) Text(item.note, style = MaterialTheme.typography.bodyMedium)
                                             }
-                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatFinancialAmount(item.amountMinor)}", style = MaterialTheme.typography.titleMedium, color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatToman(item.amountMinor)}", style = MaterialTheme.typography.titleMedium, color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -284,7 +285,7 @@ class MainActivity : FragmentActivity() {
                                             Text("هنوز فاکتور قطعی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         } else {
                                             Text("تعداد فاکتورهای قطعی: " + formatFinancialAmount(postedInvoices.size.toLong()))
-                                            Text("جمع مبلغ فاکتورهای قطعی: " + formatFinancialAmount(postedInvoiceTotal), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                                            Text("جمع مبلغ فاکتورهای قطعی: " + formatToman(postedInvoiceTotal), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                                         }
                                         Text("جمع فاکتورها پس از تخفیف و پیش از اعتبار برگشت کالا است.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
