@@ -1,18 +1,28 @@
 package com.padnakasht.nativeapp.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 /**
  * Persistent primary navigation for the offline PadnaKesht app.
- * Keep section labels stable because they are also used by accessibility and UI tests.
+ * Stable labels support accessibility and automated UI tests.
  */
 @Composable
 fun PadnaBottomNavigation(
@@ -20,29 +30,38 @@ fun PadnaBottomNavigation(
     onSectionSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    data class NavigationDestination(val route: String, val label: String, val icon: ImageVector)
     val items = listOf(
-        Triple("overview", "⌂", "نمای کلی"),
-        Triple("business", "▦", "فروش و انبار"),
-        Triple("reports", "▤", "گزارش‌ها")
+        NavigationDestination("overview", "نمای کلی", Icons.Filled.Home),
+        NavigationDestination("business", "فروش و انبار", Icons.Filled.Inventory2),
+        NavigationDestination("reports", "گزارش‌ها", Icons.Filled.Assessment)
     )
     NavigationBar(
         modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 8.dp
     ) {
-        items.forEach { (section, symbol, label) ->
+        items.forEach { item ->
+            val selected = selectedSection == item.route
+            val iconScale by animateFloatAsState(
+                targetValue = if (selected) 1.08f else 1f,
+                animationSpec = spring(dampingRatio = 0.62f, stiffness = 520f),
+                label = "navigation-icon-scale"
+            )
             NavigationBarItem(
-                selected = selectedSection == section,
-                onClick = { if (selectedSection != section) onSectionSelected(section) },
+                selected = selected,
+                onClick = { if (!selected) onSectionSelected(item.route) },
                 icon = {
-                    Text(
-                        text = symbol,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (selectedSection == section) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = iconScale
+                            scaleY = iconScale
+                        }
                     )
                 },
-                label = { Text(text = label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
+                label = { Text(text = item.label, maxLines = 1, style = MaterialTheme.typography.labelMedium) },
                 alwaysShowLabel = true,
                 colors = NavigationBarItemDefaults.colors(
                     indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
