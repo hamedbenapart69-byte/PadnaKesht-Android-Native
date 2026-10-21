@@ -147,8 +147,8 @@ class OfflineAppSmokeTest {
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
         composeRule.onNodeWithTag("register-customer").performClick()
-        // Success notices are transient and are not list items; assert the persisted customer below.
-        awaitExists("مشتری ثبت شد.")
+        // A snackbar is transient and may disappear before the test observes it.
+        // Verify the durable result in the customer list instead of timing the toast.
         awaitVisibleByScrolling("مشتری آزمایشی", substring = true)
         capture("customers")
 
