@@ -57,6 +57,29 @@ class BusinessAccountingTest {
         assertEquals(0L, second.returnCreditsMinor); assertEquals(200L, second.refundsMinor)
     }
 
+    @Test fun periodIncludesBothBoundaryDatesAndExcludesAdjacentEvents() {
+        val invoices = listOf(
+            InvoiceAccountingEvent(1, 9, 90, "POSTED"),
+            InvoiceAccountingEvent(2, 10, 100, "POSTED"),
+            InvoiceAccountingEvent(3, 20, 200, "POSTED"),
+            InvoiceAccountingEvent(4, 21, 210, "POSTED")
+        )
+        val payments = listOf(
+            PaymentAccountingEvent(1, 9, 9),
+            PaymentAccountingEvent(2, 10, 10),
+            PaymentAccountingEvent(3, 20, 20),
+            PaymentAccountingEvent(4, 21, 21)
+        )
+        val result = BusinessAccounting.period(10, 20, invoices, payments, emptyList(), emptyList())
+        assertEquals(300L, result.invoicedSalesMinor)
+        assertEquals(30L, result.receiptsMinor)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun periodRejectsEndBeforeStart() {
+        BusinessAccounting.period(20, 10, emptyList(), emptyList(), emptyList(), emptyList())
+    }
+
     @Test(expected = ArithmeticException::class) fun totalsCannotSilentlyOverflow() {
         BusinessAccounting.summarize(
             listOf(InvoiceAccountingEvent(1, 1, Long.MAX_VALUE, "POSTED"), InvoiceAccountingEvent(2, 2, 1, "POSTED")),
