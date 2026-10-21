@@ -15,6 +15,9 @@ fun normalizePersianDigits(value: String): String = buildString(value.length) {
     }
 }
 
-/** Localized grouping for readable financial values; the caller supplies the configured smallest unit. */
+/** Localized integer grouping for quantities, IDs, and raw values. */
 fun formatFinancialAmount(value: Long): String =
     NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
+
+/** User-facing monetary display: business prices and ledger amounts are entered in toman. */
+fun formatToman(value: Long): String = "${formatFinancialAmount(value)} تومان"
