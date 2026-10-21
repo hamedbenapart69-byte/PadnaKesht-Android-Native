@@ -72,20 +72,24 @@ class FinancialReportExporterTest {
 
         assertTrue(sheet.contains("محصول &lt;ویژه&gt;"))
         assertTrue(sheet.contains("پرداخت &amp; دریافت"))
-        assertTrue(sheet.contains("گزارش مالی"))
+        val workbook = unzipEntry(output.toByteArray(), "xl/workbook.xml")
+        assertTrue(workbook.contains("گزارش مالی"))
     }
 
-    private fun unzipWorksheet(bytes: ByteArray): String {
+    private fun unzipWorksheet(bytes: ByteArray): String =
+        unzipEntry(bytes, "xl/worksheets/sheet1.xml")
+
+    private fun unzipEntry(bytes: ByteArray, expectedName: String): String {
         ZipInputStream(bytes.inputStream()).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (entry.name == "xl/worksheets/sheet1.xml") {
+                if (entry.name == expectedName) {
                     return zip.readBytes().toString(Charsets.UTF_8)
                 }
                 zip.closeEntry()
             }
         }
-        throw AssertionError("XLSX worksheet entry is missing")
+        throw AssertionError("XLSX entry is missing: $expectedName")
     }
 
     private fun sampleTransactions() = listOf(
