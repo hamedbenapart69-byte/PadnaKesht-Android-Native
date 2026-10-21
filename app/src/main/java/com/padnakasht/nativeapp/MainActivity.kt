@@ -369,18 +369,67 @@ class MainActivity : FragmentActivity() {
                         }
                         if (activeSection == "overview") {
                             item {
-                                SectionHeading("خلاصه مالی", "نمای کلی از درآمد، هزینه و جریان ثبت‌شده")
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
-                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatToman(summary.incomeMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+                                SectionHeading("خلاصه مالی", "فروش، دریافتی و بدهی با محاسبهٔ جداگانه")
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("فروش خالص فاکتوری", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.netSalesMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                            }
+                                        }
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1D8))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("دریافتی خالص نقدی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.netCashReceiptsMinor), style = MaterialTheme.typography.titleLarge, color = Color(0xFF94651C), maxLines = 2)
+                                            }
                                         }
                                     }
-                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("ماندهٔ مطالبات", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.outstandingBalanceMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, maxLines = 2)
+                                            }
+                                        }
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE9ECE8))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("اعتبار مرجوعی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.returnCreditsMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            item {
+                                SectionHeading("دفتر مالی عمومی", "درآمد و هزینه‌هایی که جدا از فاکتور ثبت می‌شوند")
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Card(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatToman(summary.expenseMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
+                                            Text("درآمد عمومی", style = MaterialTheme.typography.labelLarge)
+                                            Text(formatToman(summary.incomeMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                        }
+                                    }
+                                    Card(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
+                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("هزینهٔ عمومی", style = MaterialTheme.typography.labelLarge)
+                                            Text(formatToman(summary.expenseMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, maxLines = 2)
                                         }
                                     }
                                 }
@@ -388,9 +437,9 @@ class MainActivity : FragmentActivity() {
                             item {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
+                                        Text("خالص جریان عمومی", style = MaterialTheme.typography.titleMedium)
                                         Text(formatToman(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                                        Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("این مبلغ فقط از دفتر عمومی درآمد و هزینه محاسبه می‌شود و فروش فاکتوری یا دریافت وجه مشتری را دوباره جمع نمی‌زند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
