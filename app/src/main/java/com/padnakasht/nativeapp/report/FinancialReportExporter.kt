@@ -19,7 +19,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 data class BusinessReportRow(val dateEpochDay: Long, val type: String, val reference: String, val customer: String, val amountMinor: Long, val balanceMinor: Long = 0L, val details: String = "")
-data class BusinessReportData(val title: String, val startEpochDay: Long, val endEpochDayInclusive: Long, val invoiceSalesMinor: Long, val receiptsMinor: Long, val returnCreditsMinor: Long, val refundsMinor: Long, val outstandingMinor: Long, val rows: List<BusinessReportRow>)
+data class BusinessReportData(val title: String, val startEpochDay: Long, val endEpochDayInclusive: Long, val invoiceSalesMinor: Long, val receiptsMinor: Long, val returnCreditsMinor: Long, val refundsMinor: Long, val outstandingMinor: Long, val rows: List<BusinessReportRow>, val generalIncomeMinor: Long = 0L, val generalExpenseMinor: Long = 0L)
 
 object FinancialReportExporter {
     fun writePdf(resolver: ContentResolver, uri: Uri, transactions: List<FinancialTransaction>) {
@@ -75,6 +75,7 @@ object FinancialReportExporter {
             rows += listOf("خلاصه", "فروش فاکتوری", "", report.invoiceSalesMinor.toString(), "دریافتی", report.receiptsMinor.toString(), "")
             rows += listOf("خلاصه", "اعتبار مرجوعی", "", report.returnCreditsMinor.toString(), "بازپرداخت", report.refundsMinor.toString(), "")
             rows += listOf("خلاصه", "بدهی باقی‌مانده", "", report.outstandingMinor.toString(), "", "", "")
+            rows += listOf("دفتر عمومی", "درآمد عمومی", "", report.generalIncomeMinor.toString(), "هزینه عمومی", report.generalExpenseMinor.toString(), "")
             rows += listOf("تاریخ شمسی", "نوع رویداد", "مرجع", "مشتری", "مبلغ (تومان)", "مانده بدهی", "شرح")
             report.rows.forEach { row -> rows += listOf(JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay)), row.type, row.reference, row.customer, row.amountMinor.toString(), row.balanceMinor.toString(), row.details) }
             val sheet = buildString {
@@ -99,7 +100,7 @@ object FinancialReportExporter {
         output.use { stream ->
             val document = PdfDocument()
             try {
-                val lines = listOf("گزارش مالی فروش پادناکِشت", "بازه: ${JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay))} تا ${JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive))}", "فروش فاکتوری: ${persianDigits(report.invoiceSalesMinor)}", "دریافتی: ${persianDigits(report.receiptsMinor)} | اعتبار مرجوعی: ${persianDigits(report.returnCreditsMinor)}", "بازپرداخت: ${persianDigits(report.refundsMinor)} | بدهی باقی‌مانده: ${persianDigits(report.outstandingMinor)}", "تاریخ شمسی | رویداد | مرجع | مشتری | مبلغ | مانده | شرح") + report.rows.map { row -> "${JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay))} | ${row.type} | ${row.reference} | ${row.customer} | ${persianDigits(row.amountMinor)} | ${persianDigits(row.balanceMinor)} | ${row.details}" }
+                val lines = listOf("گزارش مالی فروش پادناکِشت", "درآمد عمومی: ${persianDigits(report.generalIncomeMinor)} | هزینه عمومی: ${persianDigits(report.generalExpenseMinor)}", "بازه: ${JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay))} تا ${JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive))}", "فروش فاکتوری: ${persianDigits(report.invoiceSalesMinor)}", "دریافتی: ${persianDigits(report.receiptsMinor)} | اعتبار مرجوعی: ${persianDigits(report.returnCreditsMinor)}", "بازپرداخت: ${persianDigits(report.refundsMinor)} | بدهی باقی‌مانده: ${persianDigits(report.outstandingMinor)}", "تاریخ شمسی | رویداد | مرجع | مشتری | مبلغ | مانده | شرح") + report.rows.map { row -> "${JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay))} | ${row.type} | ${row.reference} | ${row.customer} | ${persianDigits(row.amountMinor)} | ${persianDigits(row.balanceMinor)} | ${row.details}" }
                 val perPage = 30
                 val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10f }
                 for (pageIndex in 0 until maxOf(1, (lines.size + perPage - 1) / perPage)) {

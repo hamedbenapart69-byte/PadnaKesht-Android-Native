@@ -147,6 +147,7 @@ class MainActivity : FragmentActivity() {
                     )
                 }
 
+                val summary = remember(transactions) { LedgerRules.summarize(transactions) }
                 val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, transactions) {
                     val customerNames = businessCustomers.associate { it.id to it.name }
                     val rows = mutableListOf<com.padnakasht.nativeapp.report.BusinessReportRow>()
@@ -195,7 +196,6 @@ class MainActivity : FragmentActivity() {
                     )
                 }
 
-                val summary = remember(transactions) { LedgerRules.summarize(transactions) }
                 var reportMessage by remember { mutableStateOf<String?>(null) }
                 val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/pdf")
