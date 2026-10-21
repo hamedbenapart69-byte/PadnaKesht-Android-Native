@@ -49,6 +49,8 @@ import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
+import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
+import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
@@ -61,6 +63,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.text.NumberFormat
+import java.util.Locale
 
 class MainActivity : FragmentActivity() {
     private fun isBiometricAvailable(): Boolean =
@@ -99,8 +103,7 @@ class MainActivity : FragmentActivity() {
         val repository = TransactionRepository(db.transactionDao())
         val businessRepository = BusinessRepository(db.businessDao())
         setContent {
-            val darkTheme = isSystemInDarkTheme()
-            MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(primary = Color(0xFF176B5B), secondary = Color(0xFFC1843D), background = Color(0xFFF3F6F5), surface = Color.White, error = Color(0xFFB3261E))) {
+            PadnaKeshtTheme {
                 var authenticated by remember { mutableStateOf(false) }
                 if (!authenticated) {
                     PinGate(
@@ -154,23 +157,48 @@ class MainActivity : FragmentActivity() {
                         item {
                             Card(
                                 Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                                shape = MaterialTheme.shapes.extraLarge,
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
-                                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                                    Text("مدیریت مالی کسب‌وکار • آفلاین و امن", style = MaterialTheme.typography.bodyLarge, color = Color.White)
-                                    Text("اطلاعات روی همین دستگاه نگهداری می‌شود", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                                Column(
+                                    Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 22.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                            Text("دفتر مالی کسب‌وکار شما", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f))
+                                        }
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.13f),
+                                            shape = MaterialTheme.shapes.large
+                                        ) {
+                                            Text("PK", modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                        }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        Surface(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f), shape = MaterialTheme.shapes.small) {
+                                            Text("● آفلاین و محلی", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                        }
+                                        Text(JalaliDate.format(LocalDate.now()), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f))
+                                    }
                                 }
                             }
                         }
                         item {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
-                                    if (activeSection == section) {
-                                        Button(onClick = { activeSection = section }, modifier = Modifier.weight(1f)) { Text(label) }
-                                    } else {
-                                        TextButton(onClick = { activeSection = section }, modifier = Modifier.weight(1f)) { Text(label) }
-                                    }
+                            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEachIndexed { index, (section, label) ->
+                                    androidx.compose.material3.SegmentedButton(
+                                        selected = activeSection == section,
+                                        onClick = { activeSection = section },
+                                        shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index = index, count = 3),
+                                        label = { Text(label, maxLines = 1) }
+                                    )
                                 }
                             }
                         }
@@ -181,13 +209,13 @@ class MainActivity : FragmentActivity() {
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(summary.incomeMinor.toString(), style = MaterialTheme.typography.titleLarge, color = Color(0xFF145C48))
+                                            Text(formatFinancialAmount(summary.incomeMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                                         }
                                     }
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(summary.expenseMinor.toString(), style = MaterialTheme.typography.titleLarge, color = Color(0xFF9B3028))
+                                            Text(formatFinancialAmount(summary.expenseMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -196,7 +224,7 @@ class MainActivity : FragmentActivity() {
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
-                                        Text(summary.netMinor.toString(), style = MaterialTheme.typography.headlineMedium, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        Text(formatFinancialAmount(summary.netMinor), style = MaterialTheme.typography.headlineMedium, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                         Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
@@ -254,10 +282,10 @@ class MainActivity : FragmentActivity() {
                                         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 Text(item.category, style = MaterialTheme.typography.titleMedium)
-                                                Text(LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 if (item.note.isNotBlank()) Text(item.note, style = MaterialTheme.typography.bodyMedium)
                                             }
-                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}", style = MaterialTheme.typography.titleMedium, color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatFinancialAmount(item.amountMinor)}", style = MaterialTheme.typography.titleMedium, color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                         }
                                     }
                                 }
@@ -288,11 +316,11 @@ class MainActivity : FragmentActivity() {
                                     Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(item.category, style = MaterialTheme.typography.titleMedium)
-                                            Text(LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall)
+                                            Text(JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             if (item.note.isNotBlank()) Text(item.note)
                                         }
                                         Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${item.amountMinor}", color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                            Text("${if (item.kind == TransactionKind.INCOME) "+" else "−"}${formatFinancialAmount(item.amountMinor)}", color = if (item.kind == TransactionKind.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                             TextButton(onClick = { pendingDeleteId = item.id }) { Text("حذف") }
                                         }
                                     }
@@ -345,3 +373,7 @@ class LedgerViewModel(private val repository: TransactionRepository) : ViewModel
         }
     }
 }
+
+
+private fun formatFinancialAmount(value: Long): String =
+    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
