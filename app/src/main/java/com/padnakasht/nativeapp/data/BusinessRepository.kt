@@ -67,6 +67,8 @@ class BusinessRepository(private val dao: BusinessDao) {
     }
 
     suspend fun createSingleProductInvoice(customerId: Long, productId: Long, quantity: Long): Long {
+        require(customerId > 0) { "Customer is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
         require(quantity > 0) { "Quantity must be positive" }
         val product = dao.getProduct(productId) ?: error("Product not found")
         val lineTotal = Math.multiplyExact(product.unitPriceMinor, quantity)
@@ -114,6 +116,10 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun outstandingBalance(invoiceId: Long): Long {
         val invoice = dao.getInvoice(invoiceId) ?: error("Invoice not found")
-        return Math.subtractExact(Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)), dao.getReturnsTotal(invoiceId))
+        if (invoice.status != "POSTED") return 0L
+        return Math.subtractExact(
+            Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)),
+            dao.getReturnsTotal(invoiceId)
+        )
     }
 }
