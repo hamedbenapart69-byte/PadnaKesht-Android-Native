@@ -23,8 +23,7 @@ class OfflineAppSmokeTest {
         composeRule.waitForIdle()
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
             ?: throw AssertionError("Emulator screenshot capture failed: $name")
-        val directory = composeRule.activity.getExternalFilesDir(null)
-            ?: throw AssertionError("External files directory unavailable")
+        val directory = composeRule.activity.filesDir
         FileOutputStream(File(directory, "padnakasht-$name.png")).use {
             check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "Could not save screenshot: $name" }
         }
