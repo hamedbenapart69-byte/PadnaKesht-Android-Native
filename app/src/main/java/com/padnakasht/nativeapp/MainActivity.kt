@@ -48,6 +48,7 @@ import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
+import com.padnakasht.nativeapp.ui.SectionHeading
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
@@ -202,7 +203,7 @@ class MainActivity : FragmentActivity() {
                         }
                         if (activeSection == "overview") {
                             item {
-                                Text("خلاصه مالی", style = MaterialTheme.typography.titleLarge)
+                                SectionHeading("خلاصه مالی", "نمای کلی از درآمد، هزینه و جریان ثبت‌شده")
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -264,7 +265,7 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             }
-                            item { Text("تراکنش‌های اخیر", style = MaterialTheme.typography.titleLarge) }
+                            item { SectionHeading("تراکنش‌های اخیر", "آخرین رویدادهای دفتر مالی") }
                             if (transactions.isEmpty()) {
                                 item {
                                     Card(Modifier.fillMaxWidth()) {
@@ -290,12 +291,12 @@ class MainActivity : FragmentActivity() {
                             }
                         } else if (activeSection == "business") {
                             item {
-                                Text("فروش، مشتریان و کالاها", style = MaterialTheme.typography.titleLarge)
+                                SectionHeading("فروش، مشتریان و کالاها", "مدیریت گردش روزانهٔ کسب‌وکار")
                                 Text("ثبت‌های فاکتور و انبار در پایگاه داده محلی ذخیره می‌شوند.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             item { BusinessManagement(businessRepository) }
                         } else {
-                            item { Text("گزارش و تحلیل", style = MaterialTheme.typography.titleLarge) }
+                            item { SectionHeading("گزارش و تحلیل", "نمودارها و خروجی مبتنی بر تراکنش‌های ثبت‌شده") }
                             item { FinancialCharts(transactions) }
                             item {
                                 Card(Modifier.fillMaxWidth()) {
@@ -307,7 +308,7 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             }
-                            item { Text("تمام تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
+                            item { SectionHeading("تمام تراکنش‌ها", "دفتر تراکنش‌های ثبت‌شده و قابل پیگیری") }
                             if (transactions.isEmpty()) item { Text("داده‌ای برای گزارش وجود ندارد.") }
                             items(transactions, key = { "ledger-${it.id}" }) { item ->
                                 Card(Modifier.fillMaxWidth()) {

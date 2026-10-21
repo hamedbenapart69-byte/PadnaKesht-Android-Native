@@ -27,6 +27,7 @@ import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.domain.JalaliDate
+import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -69,8 +70,8 @@ fun BusinessManagement(repository: BusinessRepository) {
     val cart = remember { mutableStateListOf<DraftLine>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text("مدیریت کسب‌وکار", style = MaterialTheme.typography.headlineSmall)
-        Text("مشتریان", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("مدیریت کسب‌وکار", "مشتری، کالا، فاکتور و گردش موجودی")
+        SectionHeading("مشتریان", "ثبت و جست‌وجوی مشتریان و مانده حساب")
         OutlinedTextField(customerName, { customerName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام مشتری") }, singleLine = true)
         OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, singleLine = true)
         Button(
@@ -99,11 +100,11 @@ fun BusinessManagement(repository: BusinessRepository) {
             )
         }
 
-        Text("محصولات و موجودی", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("محصولات و موجودی", "قیمت‌گذاری، سطح هشدار و موجودی فعلی")
         OutlinedTextField(productName, { productName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام محصول") }, singleLine = true)
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
         OutlinedTextField(productCategory, { productCategory = it; message = null }, Modifier.fillMaxWidth(), label = { Text("دسته‌بندی کالا") }, singleLine = true)
-        OutlinedTextField(stock, { stock = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
+        OutlinedTextField(stock, { stock = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
         OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
         OutlinedTextField(lowStockThreshold, { lowStockThreshold = it.filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
         Button(
@@ -132,7 +133,11 @@ fun BusinessManagement(repository: BusinessRepository) {
                 Text("کالا را از فهرست بالا انتخاب کنید. عدد مثبت ورود و عدد منفی خروج دستی است.", style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     adjustmentDelta,
-                    { adjustmentDelta = if (it == "-" || it.all(Char::isDigit)) it else it.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') } },
+                    {
+                        val normalized = normalizePersianDigits(it)
+                        adjustmentDelta = if (normalized == "-" || normalized.all(Char::isDigit)) normalized
+                        else normalized.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') }
+                    },
                     Modifier.fillMaxWidth(),
                     label = { Text("تغییر تعداد (+/-)") },
                     singleLine = true
@@ -161,7 +166,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 ) { Text("ثبت اصلاح موجودی") }
             }
         }
-        Text("گردش اخیر انبار", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("گردش اخیر انبار", "سوابق ثبت‌شدهٔ ورود، خروج و اصلاح")
         if (stockMovements.isEmpty()) {
             Text("هنوز گردش انباری ثبت نشده است.", style = MaterialTheme.typography.bodySmall)
         } else {
@@ -177,7 +182,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             }
         }
 
-        Text("صدور فاکتور", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
         Text("مشتری و کالا را از فهرست بالا انتخاب کنید؛ سپس تعداد را به سبد اضافه کنید.")
         OutlinedTextField(quantity, { quantity = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
         Button(
@@ -238,7 +243,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت نهایی فاکتور") }
 
-        Text("فاکتورها و دریافت‌ها", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
         OutlinedTextField(paymentInvoice, { paymentInvoice = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
         OutlinedTextField(paymentAmount, { paymentAmount = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
         Button(
@@ -264,7 +269,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             InvoiceBalanceRow(invoice, repository)
         }
 
-        Text("ثبت برگشت کالا", style = MaterialTheme.typography.titleMedium)
+        SectionHeading("ثبت برگشت کالا", "ثبت مستقل برگشت و محاسبهٔ اعتبار مشتری")
         Text("برگشت به‌صورت مستقل ثبت می‌شود؛ موجودی افزایش می‌یابد و اعتبار مشتری از مانده فاکتور کسر می‌شود.")
         OutlinedTextField(
             returnInvoiceId,

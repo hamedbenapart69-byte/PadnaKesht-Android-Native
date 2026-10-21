@@ -7,6 +7,9 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,9 +103,12 @@ fun PadnaKeshtTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) PadnaDarkColors else PadnaLightColors,
         typography = PadnaTypography,
-        shapes = PadnaShapes,
-        content = content
-    )
+        shapes = PadnaShapes
+    ) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            content()
+        }
+    }
 }
 
 /** Semantic brand tints for financial movement states. */
