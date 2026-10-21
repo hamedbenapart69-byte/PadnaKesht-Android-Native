@@ -13,10 +13,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InvoiceEntity::class,
         InvoiceLineEntity::class,
         PaymentEntity::class,
+        PaymentRefundEntity::class,
         StockMovementEntity::class,
         SalesReturnEntity::class
     ],
-    version = 7,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +25,23 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS payment_refunds (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, invoiceId INTEGER NOT NULL, paymentId INTEGER NOT NULL, amountMinor INTEGER NOT NULL, refundedAtEpochDay INTEGER NOT NULL, reason TEXT NOT NULL, idempotencyKey TEXT NOT NULL, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(paymentId) REFERENCES payments(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_payment_refunds_invoiceId ON payment_refunds(invoiceId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_payment_refunds_paymentId ON payment_refunds(paymentId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_payment_refunds_idempotencyKey ON payment_refunds(idempotencyKey)")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE payments ADD COLUMN idempotencyKey TEXT")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_payments_idempotencyKey ON payments(idempotencyKey)")
+            }
+        }
+
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS sales_returns (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, invoiceId INTEGER NOT NULL, invoiceLineId INTEGER NOT NULL, productId INTEGER NOT NULL, quantity INTEGER NOT NULL, creditAmountMinor INTEGER NOT NULL, reason TEXT NOT NULL, returnedAtEpochDay INTEGER NOT NULL, FOREIGN KEY(invoiceId) REFERENCES invoices(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(invoiceLineId) REFERENCES invoice_lines(id) ON UPDATE NO ACTION ON DELETE RESTRICT, FOREIGN KEY(productId) REFERENCES products(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")

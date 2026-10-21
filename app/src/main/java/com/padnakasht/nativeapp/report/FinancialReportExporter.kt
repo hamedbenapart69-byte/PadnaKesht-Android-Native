@@ -1,11 +1,17 @@
 package com.padnakasht.nativeapp.report
 
 import android.content.ContentResolver
+import android.graphics.Canvas
 import android.graphics.Paint
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
+import android.text.TextPaint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
+import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.domain.TransactionKind
 import java.io.OutputStream
 import java.time.LocalDate
@@ -19,32 +25,32 @@ object FinancialReportExporter {
             val document = PdfDocument()
             try {
                 val summary = LedgerRules.summarize(transactions)
-                val rowsPerPage = 34
+                val rowsPerPage = 28
                 val pages = maxOf(1, (transactions.size + rowsPerPage - 1) / rowsPerPage)
+                val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 12f }
                 for (pageIndex in 0 until pages) {
                     val info = PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create()
                     val page = document.startPage(info)
                     val canvas = page.canvas
-                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        textSize = 14f
-                        textAlign = Paint.Align.RIGHT
-                    }
-                    var y = 42f
-                    canvas.drawText("گزارش مالی پادناکِشت", 555f, y, paint)
-                    y += 28f
-                    canvas.drawText("درآمد: ${summary.incomeMinor} | هزینه: ${summary.expenseMinor} | خالص: ${summary.netMinor}", 555f, y, paint)
-                    y += 30f
-                    canvas.drawText("تاریخ | نوع | دسته‌بندی | مبلغ | توضیحات", 555f, y, paint)
-                    y += 24f
-                    val start = pageIndex * rowsPerPage
-                    val end = minOf(transactions.size, start + rowsPerPage)
-                    for (i in start until end) {
+                    var y = 36f
+                    y += drawRtlText(canvas, "گزارش مالی پادناکِشت", y, paint, 515, 18f)
+                    y += drawRtlText(
+                        canvas,
+                        "درآمد: ${persianDigits(summary.incomeMinor)} | هزینه: ${persianDigits(summary.expenseMinor)} | خالص: ${persianDigits(summary.netMinor)}",
+                        y, paint, 515, 12f
+                    )
+                    y += drawRtlText(canvas, "تمام مبالغ به تومان هستند.", y, paint, 515, 10f)
+                    y += 8f
+                    y += drawRtlText(canvas, "تاریخ | نوع | دسته‌بندی | مبلغ | توضیحات", y, paint, 515, 12f)
+                    y += 6f
+                    val startIndex = pageIndex * rowsPerPage
+                    val endIndex = minOf(transactions.size, startIndex + rowsPerPage)
+                    for (i in startIndex until endIndex) {
                         val item = transactions[i]
                         val kind = if (item.kind == TransactionKind.INCOME) "درآمد" else "هزینه"
-                        val date = LocalDate.ofEpochDay(item.occurredAtEpochDay).toString()
-                        val line = "$date | $kind | ${item.category.take(18)} | ${item.amountMinor} | ${item.note.take(18)}"
-                        canvas.drawText(line.take(100), 555f, y, paint)
-                        y += 20f
+                        val date = JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay))
+                        val line = "$date | $kind | ${item.category.take(16)} | ${persianDigits(item.amountMinor)} | ${item.note.take(16)}"
+                        y += drawRtlText(canvas, line, y, paint, 515, 10f)
                     }
                     document.finishPage(page)
                 }
@@ -55,6 +61,31 @@ object FinancialReportExporter {
         }
     }
 
+    private fun drawRtlText(
+        canvas: Canvas,
+        text: String,
+        top: Float,
+        basePaint: TextPaint,
+        width: Int,
+        textSize: Float
+    ): Float {
+        val paint = TextPaint(basePaint).apply { this.textSize = textSize }
+        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setTextDirection(TextDirectionHeuristics.RTL)
+            .setIncludePad(false)
+            .build()
+        canvas.save()
+        canvas.translate(40f, top)
+        layout.draw(canvas)
+        canvas.restore()
+        return layout.height.toFloat() + 4f
+    }
+
+    private fun persianDigits(value: Long): String = value.toString().map { ch ->
+        if (ch in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[ch - '0'] else ch
+    }.joinToString("")
+
     fun writeXlsx(output: OutputStream, transactions: List<FinancialTransaction>) {
         val summary = LedgerRules.summarize(transactions)
         ZipOutputStream(output).use { zip ->
@@ -63,13 +94,13 @@ object FinancialReportExporter {
             zip.putText("xl/workbook.xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="گزارش مالی" sheetId="1" r:id="rId1"/></sheets></workbook>""")
             zip.putText("xl/_rels/workbook.xml.rels", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""")
             val rows = mutableListOf<List<String>>()
-            rows += listOf("تاریخ", "نوع", "دسته‌بندی", "مبلغ (واحد خرد پول)", "توضیحات")
+            rows += listOf("تاریخ", "نوع", "دسته‌بندی", "مبلغ (تومان)", "توضیحات")
             rows += listOf("خلاصه", "درآمد", "", summary.incomeMinor.toString(), "")
             rows += listOf("خلاصه", "هزینه", "", summary.expenseMinor.toString(), "")
             rows += listOf("خلاصه", "خالص", "", summary.netMinor.toString(), "")
             transactions.forEach { item ->
                 rows += listOf(
-                    LocalDate.ofEpochDay(item.occurredAtEpochDay).toString(),
+                    JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay)),
                     if (item.kind == TransactionKind.INCOME) "درآمد" else "هزینه",
                     item.category,
                     item.amountMinor.toString(),
