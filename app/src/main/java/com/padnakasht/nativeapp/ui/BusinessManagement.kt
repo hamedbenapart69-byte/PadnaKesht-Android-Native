@@ -74,7 +74,7 @@ fun BusinessManagement(repository: BusinessRepository) {
     val cart = remember { mutableStateListOf<DraftLine>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        SectionHeading("مدیریت کسب‌وکار", "مشتری، کالا، فاکتور و گردش موجودی")
+        PadnaBrandHeader(subtitle = "مدیریت فروش، موجودی و حساب مشتریان")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها").forEach { (tab, label) ->
                 androidx.compose.material3.FilterChip(
