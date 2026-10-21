@@ -142,7 +142,7 @@ class OfflineAppSmokeTest {
 
         // Primary navigation is persistent; it is intentionally outside the scrolling content.
         composeRule.onNodeWithText("فروش و انبار").performClick()
-        awaitDisplayed("فروش، مشتریان و کالاها")
+        awaitVisibleByScrolling("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
