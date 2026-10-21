@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs instrumented tests and exports screenshots from the debuggable app sandbox.
+# Runs instrumented tests, keeps diagnostics, and exports genuine emulator screenshots.
 set +e
 mkdir -p screenshots
 gradle connectedDebugAndroidTest --stacktrace 2>&1 | tee gradle-connected.log
@@ -9,10 +9,11 @@ adb logcat -d > screenshots/emulator-logcat.txt 2>&1
 screenshot_result=0
 for name in dashboard business reports; do
   target="screenshots/padnakasht-${name}.png"
-  if adb exec-out run-as com.padnakasht.nativeapp cat "files/padnakasht-${name}.png" > "$target" 2>/dev/null && test -s "$target"; then
+  device_path="/sdcard/Pictures/PadnaKeshtCI/padnakasht-${name}.png"
+  if adb pull "$device_path" "$target" >/dev/null 2>&1 && test -s "$target" && file "$target" | grep -q 'PNG image data'; then
     echo "Captured UI evidence: $target ($(wc -c < "$target") bytes)"
   else
-    echo "::error::Expected UI screenshot was not available: $target"
+    echo "::error::Expected valid UI screenshot was not available: $target"
     rm -f "$target"
     screenshot_result=1
   fi

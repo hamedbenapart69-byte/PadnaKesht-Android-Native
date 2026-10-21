@@ -1,6 +1,9 @@
 package com.padnakasht.nativeapp
 
+import android.content.ContentValues
 import android.graphics.Bitmap
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,8 +15,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
-import java.io.FileOutputStream
 
 class OfflineAppSmokeTest {
     @get:Rule
@@ -23,11 +24,27 @@ class OfflineAppSmokeTest {
         composeRule.waitForIdle()
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
             ?: throw AssertionError("Emulator screenshot capture failed: $name")
-        val directory = composeRule.activity.filesDir
-        FileOutputStream(File(directory, "padnakasht-$name.png")).use {
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) { "Could not save screenshot: $name" }
+        val resolver = composeRule.activity.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "padnakasht-$name.png")
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/PadnaKeshtCI")
+            put(MediaStore.MediaColumns.IS_PENDING, 0)
         }
-        bitmap.recycle()
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: throw AssertionError("Could not create public screenshot entry: $name")
+        try {
+            resolver.openOutputStream(uri)?.use { stream ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                    "Could not encode screenshot: $name"
+                }
+            } ?: throw AssertionError("Could not open screenshot output: $name")
+        } catch (e: Throwable) {
+            resolver.delete(uri, null, null)
+            throw e
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     // PIN hashing runs off the UI thread, so Compose idling does not cover it:
