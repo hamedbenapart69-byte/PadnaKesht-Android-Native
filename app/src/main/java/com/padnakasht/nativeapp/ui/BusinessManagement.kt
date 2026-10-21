@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -391,6 +392,9 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val refunds by repository.observeRefunds(invoice.id).collectAsState(initial = emptyList())
     val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
     val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
+    var showCancelConfirmation by remember { mutableStateOf(false) }
+    var cancellationMessage by remember { mutableStateOf<String?>(null) }
+    val cancelScope = rememberCoroutineScope()
     GlassPanel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${formatFinancialAmount(invoice.id)} • مشتری ${formatFinancialAmount(invoice.customerId)} • مبلغ نهایی ${formatToman(invoice.totalMinor)}")
@@ -423,7 +427,37 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
                     Text("بازپرداخت ${formatToman(refund.amountMinor)} • ${JalaliDate.format(LocalDate.ofEpochDay(refund.refundedAtEpochDay))} • ${refund.reason}")
                 }
             }
+            if (invoice.status == "POSTED") {
+                TextButton(onClick = { showCancelConfirmation = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("لغو فاکتور و بازپرداخت دریافت‌ها")
+                }
+            }
+            cancellationMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
+    }
+    if (showCancelConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showCancelConfirmation = false },
+            title = { Text("لغو فاکتور") },
+            text = { Text("دریافت‌های ثبت‌شده حذف نمی‌شوند؛ برای هر دریافت، بازپرداخت ثبت می‌شود و فقط تعداد کالاهایی که قبلاً برگشت نخورده‌اند به موجودی برمی‌گردد. این عملیات قابل برگشت خودکار نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelConfirmation = false
+                    cancelScope.launch {
+                        runCatching { repository.cancelInvoice(invoice.id) }
+                            .onSuccess { cancelled ->
+                                cancellationMessage = if (cancelled) "فاکتور لغو شد و بازپرداخت‌ها ثبت شدند." else "فاکتور قبلاً لغو شده است."
+                            }
+                            .onFailure { error ->
+                                cancellationMessage = "لغو فاکتور ناموفق بود: ${error.message ?: "خطای نامشخص"}"
+                            }
+                    }
+                }) { Text("تأیید لغو") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelConfirmation = false }) { Text("انصراف") }
+            }
+        )
     }
 }
 
