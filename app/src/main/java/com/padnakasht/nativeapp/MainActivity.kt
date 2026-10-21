@@ -147,7 +147,7 @@ class MainActivity : FragmentActivity() {
                     )
                 }
 
-                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds) {
+                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, transactions) {
                     val customerNames = businessCustomers.associate { it.id to it.name }
                     val rows = mutableListOf<com.padnakasht.nativeapp.report.BusinessReportRow>()
                     businessInvoices.forEach { invoice ->
@@ -165,9 +165,20 @@ class MainActivity : FragmentActivity() {
                         invoiceReturns.forEach { returned -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(returned.returnedAtEpochDay, "مرجوعی", "برگشت #${returned.id}", customer, returned.creditAmountMinor, balance, returned.reason) }
                         invoiceRefunds.forEach { refund -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(refund.refundedAtEpochDay, "بازپرداخت", "بازپرداخت #${refund.id}", customer, refund.amountMinor, balance, refund.reason) }
                     }
+                    transactions.forEach { transaction ->
+                        rows += com.padnakasht.nativeapp.report.BusinessReportRow(
+                            transaction.occurredAtEpochDay,
+                            if (transaction.kind == TransactionKind.INCOME) "درآمد عمومی" else "هزینه عمومی",
+                            "تراکنش #${transaction.id}",
+                            transaction.category,
+                            transaction.amountMinor,
+                            0L,
+                            transaction.note
+                        )
+                    }
                     rows.sortedWith(compareBy<com.padnakasht.nativeapp.report.BusinessReportRow> { it.dateEpochDay }.thenBy { it.reference })
                 }
-                val businessReportData = remember(businessReportRows, businessSummary) {
+                val businessReportData = remember(businessReportRows, businessSummary, summary, transactions) {
                     val today = LocalDate.now()
                     BusinessReportData(
                         title = "گزارش کامل فروش و دریافت‌ها",
@@ -178,7 +189,9 @@ class MainActivity : FragmentActivity() {
                         returnCreditsMinor = businessSummary.returnCreditsMinor,
                         refundsMinor = businessSummary.refundsMinor,
                         outstandingMinor = businessSummary.outstandingBalanceMinor,
-                        rows = businessReportRows
+                        rows = businessReportRows,
+                        generalIncomeMinor = summary.incomeMinor,
+                        generalExpenseMinor = summary.expenseMinor
                     )
                 }
 

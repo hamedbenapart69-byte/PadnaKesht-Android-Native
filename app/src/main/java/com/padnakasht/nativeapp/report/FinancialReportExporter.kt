@@ -83,7 +83,7 @@ object FinancialReportExporter {
                     append("<row r=\"${ri + 1}\">")
                     cells.forEachIndexed { ci, value ->
                         val ref = "${columnName(ci + 1)}${ri + 1}"
-                        if ((ri in 1..3 && (ci == 3 || ci == 5)) || (ri >= 5 && (ci == 4 || ci == 5))) append("<c r=\"$ref\"><v>${value.toLongOrNull() ?: 0L}</v></c>")
+                        if ((ri in 1..4 && (ci == 3 || ci == 5)) || (ri >= 6 && (ci == 4 || ci == 5))) append("<c r=\"$ref\"><v>${value.toLongOrNull() ?: 0L}</v></c>")
                         else append("<c r=\"$ref\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${xmlEscape(value)}</t></is></c>")
                     }
                     append("</row>")
