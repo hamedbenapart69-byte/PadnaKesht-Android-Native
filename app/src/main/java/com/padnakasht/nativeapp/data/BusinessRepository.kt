@@ -86,13 +86,14 @@ class BusinessRepository(private val dao: BusinessDao) {
         )
     }
 
-    suspend fun receivePayment(invoiceId: Long, amountMinor: Long, note: String = ""): Long =
+    suspend fun receivePayment(invoiceId: Long, amountMinor: Long, note: String = "", idempotencyKey: String? = null): Long =
         dao.recordPayment(
             PaymentEntity(
                 invoiceId = invoiceId,
                 amountMinor = amountMinor,
                 paidAtEpochDay = LocalDate.now().toEpochDay(),
-                note = note.trim()
+                note = note.trim(),
+                idempotencyKey = idempotencyKey
             )
         )
 
