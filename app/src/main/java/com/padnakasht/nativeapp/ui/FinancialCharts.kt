@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +27,7 @@ import kotlin.math.max
 @Composable
 fun FinancialCharts(transactions: List<FinancialTransaction>) {
     if (transactions.isEmpty()) {
-        Card(Modifier.fillMaxWidth()) {
+        GlassPanel(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
@@ -48,7 +47,7 @@ fun FinancialCharts(transactions: List<FinancialTransaction>) {
     }
     val scheme = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Card(Modifier.fillMaxWidth()) {
+        GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text("ترکیب درآمد و هزینه", style = MaterialTheme.typography.titleMedium)
                 Canvas(Modifier.fillMaxWidth().height(150.dp)) {
@@ -69,7 +68,7 @@ fun FinancialCharts(transactions: List<FinancialTransaction>) {
                 Text("درآمد: ${formatFinancialAmount(summary.incomeMinor)}  •  هزینه: ${formatFinancialAmount(summary.expenseMinor)}")
             }
         }
-        Card(Modifier.fillMaxWidth()) {
+        GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text("هفت تراکنش اخیر", style = MaterialTheme.typography.titleMedium)
                 Canvas(Modifier.fillMaxWidth().height(130.dp)) {
@@ -92,7 +91,7 @@ fun FinancialCharts(transactions: List<FinancialTransaction>) {
                 Text("درآمد با رنگ اصلی • هزینه با رنگ هشدار", color = scheme.onSurfaceVariant)
             }
         }
-        Card(Modifier.fillMaxWidth()) {
+        GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp)) {
                 Text("روند خالص تجمعی", style = MaterialTheme.typography.titleMedium)
                 Canvas(Modifier.fillMaxWidth().height(130.dp)) {
