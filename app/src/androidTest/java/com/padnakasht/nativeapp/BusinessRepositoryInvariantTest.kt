@@ -72,4 +72,36 @@ class BusinessRepositoryInvariantTest {
             context.getDatabasePath("repository-cancelled-balance-test.db").delete()
         }
     }
+    @Test
+    fun invoiceWithPaymentCannotBeCancelledAndKeepsPaymentAuditAndStock() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-paid-cancel-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Paid invoice customer"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "Paid invoice product", sku = "INV-PAID-CANCEL", stockQuantity = 3, unitPriceMinor = 250)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            repository.receivePayment(invoiceId, 50, "partial payment")
+
+            var rejected = false
+            try {
+                repository.cancelInvoice(invoiceId)
+            } catch (_: IllegalArgumentException) {
+                rejected = true
+            }
+
+            assertTrue("An invoice with a payment must not be cancelled without a refund workflow", rejected)
+            assertEquals("POSTED", dao.getInvoice(invoiceId)?.status)
+            assertEquals(50L, dao.getPaymentsTotal(invoiceId))
+            assertEquals(200L, repository.outstandingBalance(invoiceId))
+            assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-paid-cancel-test.db").delete()
+        }
+    }
+
 }
