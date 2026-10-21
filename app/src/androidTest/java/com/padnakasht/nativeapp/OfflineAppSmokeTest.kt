@@ -157,7 +157,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("نام محصول").performTextInput("محصول آزمایشی")
         composeRule.onNodeWithText("کد یکتای محصول").performTextInput("CI-TEST-001")
         composeRule.onNodeWithText("موجودی اولیه").performTextInput("10")
-        composeRule.onNodeWithText("قیمت واحد (واحد خرد پول)").performTextInput("100000")
+        composeRule.onNodeWithText("قیمت واحد (تومان)").performTextInput("100000")
         hideKeyboard()
         composeRule.onNodeWithTag("register-product").performScrollTo()
         composeRule.onNodeWithTag("register-product").performClick()
