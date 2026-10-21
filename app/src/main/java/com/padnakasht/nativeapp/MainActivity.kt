@@ -210,7 +210,19 @@ class MainActivity : FragmentActivity() {
                             transaction.note
                         )
                     }
-                    rows.sortedWith(compareBy<com.padnakasht.nativeapp.report.BusinessReportRow> { it.dateEpochDay }.thenBy { it.reference })
+                    rows.sortedWith(
+                        compareBy<com.padnakasht.nativeapp.report.BusinessReportRow> { it.dateEpochDay }
+                            .thenBy {
+                                when (it.type) {
+                                    "فاکتور قطعی", "فاکتور لغوشده" -> 0
+                                    "دریافتی" -> 1
+                                    "مرجوعی" -> 2
+                                    "بازپرداخت" -> 3
+                                    else -> 4
+                                }
+                            }
+                            .thenBy { it.reference }
+                    )
                 }
                 val businessReportData = remember(businessReportRows, businessSummary, summary, transactions) {
                     val today = LocalDate.now()
