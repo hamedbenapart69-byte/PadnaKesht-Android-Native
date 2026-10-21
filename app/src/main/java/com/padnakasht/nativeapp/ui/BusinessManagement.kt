@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
@@ -100,7 +101,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 }
             },
             enabled = customerName.isNotBlank() && !isSaving,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("register-customer")
         ) { Text("ثبت مشتری") }
         OutlinedTextField(customerSearch, { customerSearch = it }, Modifier.fillMaxWidth(), label = { Text("جست‌وجوی مشتری") }, singleLine = true)
         customers.filter { it.name.contains(customerSearch, ignoreCase = true) || it.phone.contains(customerSearch) }.forEach { customer ->
@@ -135,7 +136,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 }
             },
             enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null && lowStockThreshold.toLongOrNull()?.let { it >= 0 } == true && !isSaving,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("register-product")
         ) { Text("ثبت محصول") }
         products.forEach { product ->
             TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
