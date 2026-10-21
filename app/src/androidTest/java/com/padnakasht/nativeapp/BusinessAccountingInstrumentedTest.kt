@@ -239,5 +239,37 @@ class BusinessAccountingInstrumentedTest {
             db.close()
             context.getDatabasePath("business-rollback-test.db").delete()
         }
+    }    @Test
+    fun repeatedPaymentRequestWithSameIdempotencyKeyIsRecordedOnlyOnce() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "payment-idempotency-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Idempotency customer"))
+            val productId = dao.insertProduct(ProductEntity(name = "Idempotency item", sku = "SKU-IDEMPOTENCY", stockQuantity = 2, unitPriceMinor = 500))
+            val invoiceId = dao.postInvoice(
+                InvoiceEntity(customerId = customerId, createdAtEpochDay = 10),
+                listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 2, unitPriceMinor = 500, lineTotalMinor = 1000))
+            )
+            val key = "ci-payment-operation-unique-key"
+            val payment = PaymentEntity(invoiceId = invoiceId, amountMinor = 100, paidAtEpochDay = 10, note = "single receive", idempotencyKey = key)
+            val firstId = dao.recordPayment(payment)
+            val repeatedId = dao.recordPayment(payment.copy(paidAtEpochDay = 11))
+            assertEquals(firstId, repeatedId)
+            assertEquals(100L, dao.getPaymentsTotal(invoiceId))
+            assertEquals(1, dao.observePayments(invoiceId).first().size)
+            var mismatchRejected = false
+            try {
+                dao.recordPayment(payment.copy(amountMinor = 200))
+            } catch (_: IllegalArgumentException) {
+                mismatchRejected = true
+            }
+            assertTrue("Reusing an operation key for a different amount must be rejected", mismatchRejected)
+            assertEquals(100L, dao.getPaymentsTotal(invoiceId))
+        } finally {
+            db.close()
+            context.getDatabasePath("payment-idempotency-test.db").delete()
+        }
     }
+
 }
