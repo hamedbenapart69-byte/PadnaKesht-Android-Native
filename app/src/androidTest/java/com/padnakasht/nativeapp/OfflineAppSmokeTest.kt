@@ -85,11 +85,26 @@ class OfflineAppSmokeTest {
     }
 
     private fun awaitVisibleByScrolling(text: String, substring: Boolean = false) {
-        composeRule.waitUntil(timeoutMillis = 30_000) {
-            runCatching { composeRule.onNodeWithText(text, substring = substring).fetchSemanticsNode() }.isSuccess
+        // A LazyColumn item may not exist in the semantics tree until its parent
+        // list has been scrolled into range. Do not wait 30 seconds for an
+        // off-screen node before attempting to scroll the parent.
+        val target = composeRule.onNodeWithText(text, substring = substring)
+        val mainList = composeRule.onNodeWithTag("main-content-list")
+        var found = runCatching { target.fetchSemanticsNode() }.isSuccess
+        if (!found) {
+            for (index in 0..12) {
+                runCatching { mainList.performScrollToIndex(index) }
+                composeRule.waitForIdle()
+                found = runCatching { target.fetchSemanticsNode() }.isSuccess
+                if (found) break
+            }
         }
-        composeRule.onNodeWithText(text, substring = substring).performScrollTo()
-        composeRule.onNodeWithText(text, substring = substring).assertIsDisplayed()
+        if (!found) {
+            composeRule.onRoot(useUnmergedTree = true).printToLog("SMOKE_TREE")
+            throw AssertionError("Text never entered the semantics tree after scrolling parent list: $text")
+        }
+        target.performScrollTo()
+        target.assertIsDisplayed()
         composeRule.waitForIdle()
     }
 
