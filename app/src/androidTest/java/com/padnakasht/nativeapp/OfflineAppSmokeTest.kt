@@ -170,6 +170,8 @@ class OfflineAppSmokeTest {
         awaitDisplayed("خلاصه فروش فاکتوری")
         awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰")
         capture("reports")
+        // LazyColumn composes off-screen rows on demand; move to the export card first.
+        composeRule.onNodeWithTag("main-content-list").performScrollToIndex(5)
         awaitVisibleByScrolling("خروجی دفتر تراکنش‌های عمومی")
     }
 }
