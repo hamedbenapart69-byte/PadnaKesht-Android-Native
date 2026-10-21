@@ -121,6 +121,9 @@ abstract class BusinessDao {
     @Query("SELECT * FROM payments WHERE invoiceId = :invoiceId ORDER BY paidAtEpochDay DESC, id DESC")
     abstract fun observePayments(invoiceId: Long): Flow<List<PaymentEntity>>
 
+    @Query("SELECT * FROM payments WHERE idempotencyKey = :key LIMIT 1")
+    abstract suspend fun getPaymentByIdempotencyKey(key: String): PaymentEntity?
+
     @Query("UPDATE invoices SET status = 'CANCELLED' WHERE id = :invoiceId AND status = 'POSTED'")
     abstract suspend fun markInvoiceCancelled(invoiceId: Long): Int
 
@@ -158,6 +161,16 @@ abstract class BusinessDao {
     @Transaction
     open suspend fun recordPayment(payment: PaymentEntity): Long {
         require(payment.amountMinor > 0)
+        val key = payment.idempotencyKey?.trim()?.also { require(it.isNotEmpty()) { "Idempotency key cannot be blank" } }
+        if (key != null) {
+            val previous = getPaymentByIdempotencyKey(key)
+            if (previous != null) {
+                require(previous.invoiceId == payment.invoiceId && previous.amountMinor == payment.amountMinor && previous.method == payment.method && previous.note == payment.note) {
+                    "Idempotency key was already used for a different payment"
+                }
+                return previous.id
+            }
+        }
         val invoice = getInvoice(payment.invoiceId) ?: error("Invoice not found")
         require(invoice.status == "POSTED") { "Cannot pay a cancelled invoice" }
         val paid = getPaymentsTotal(payment.invoiceId)
