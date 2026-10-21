@@ -132,8 +132,8 @@ class OfflineAppSmokeTest {
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
         composeRule.onNodeWithTag("register-customer").performClick()
+        // Success notices are transient and are not list items; assert the persisted customer below.
         awaitExists("مشتری ثبت شد.")
-        awaitVisibleByScrolling("مشتری ثبت شد.")
         awaitVisibleByScrolling("مشتری آزمایشی", substring = true)
         capture("customers")
 
@@ -146,8 +146,8 @@ class OfflineAppSmokeTest {
         hideKeyboard()
         composeRule.onNodeWithTag("register-product").performScrollTo()
         composeRule.onNodeWithTag("register-product").performClick()
+        // Success notices are transient and are not list items; assert the persisted product below.
         awaitExists("محصول ثبت شد.")
-        awaitVisibleByScrolling("محصول ثبت شد.")
         awaitVisibleByScrolling("محصول آزمایشی", substring = true)
         capture("inventory")
 
@@ -168,7 +168,8 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
-        awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        // The confirmation is a transient notice; verify the persisted invoice row instead.
+        awaitExists("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
         awaitVisibleByScrolling("فاکتور #۱", substring = true)
         capture("invoice-summary")
 
