@@ -90,6 +90,11 @@ class OfflineAppSmokeTest {
         awaitDisplayed(text)
     }
 
+    private fun scrollToTop() {
+        composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
+        composeRule.waitForIdle()
+    }
+
     private fun awaitSecurityGateGone() {
         composeRule.waitUntil(timeoutMillis = 30_000) {
             runCatching {
@@ -122,7 +127,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-customer").performClick()
         awaitExists("مشتری ثبت شد.")
         awaitVisibleByScrolling("مشتری ثبت شد.")
-        composeRule.onNodeWithText("ثبت و جست‌وجوی مشتریان و مانده حساب").performScrollTo()
+        scrollToTop()
         capture("customers")
 
         composeRule.onNodeWithText("کالاها").performScrollTo()
@@ -136,7 +141,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-product").performClick()
         awaitExists("محصول ثبت شد.")
         awaitVisibleByScrolling("محصول ثبت شد.")
-        composeRule.onNodeWithText("محصولات و موجودی").performScrollTo()
+        scrollToTop()
         capture("inventory")
 
         composeRule.onNodeWithText("فاکتورها").performScrollTo()
@@ -164,7 +169,7 @@ class OfflineAppSmokeTest {
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
         awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰")
-        awaitDisplayed("خروجی دفتر تراکنش‌های عمومی")
         capture("reports")
+        awaitVisibleByScrolling("خروجی دفتر تراکنش‌های عمومی")
     }
 }
