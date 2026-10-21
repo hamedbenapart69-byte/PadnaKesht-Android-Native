@@ -66,12 +66,13 @@ class OfflineAppSmokeTest {
         }
     }
 
-    private fun awaitPinScreenGone() {
+    private fun awaitSecurityGateGone() {
         composeRule.waitUntil(timeoutMillis = 30_000) {
             runCatching {
-                composeRule.onNodeWithText("ایجاد PIN و ادامه").assertIsDisplayed()
+                composeRule.onNodeWithText("امنیت پادناکِشت").assertIsDisplayed()
             }.isFailure
         }
+        awaitDisplayed("ثبت سریع تراکنش")
     }
 
     @Test
@@ -81,9 +82,9 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("pin-confirmation").performTextInput("123456")
         composeRule.onNodeWithText("ایجاد PIN و ادامه").performClick()
 
-        // Dashboard labels can remain in the semantics tree behind the PIN gate.
-        // Wait for the gate action to stop being displayed before capturing evidence.
-        awaitPinScreenGone()
+        // The submit button changes its label while hashing the PIN. Wait for the
+        // security screen itself to disappear, not merely for that button label.
+        awaitSecurityGateGone()
         awaitDisplayed("خلاصه مالی")
         awaitDisplayed("پادناکِشت")
         capture("dashboard")
@@ -120,11 +121,6 @@ class OfflineAppSmokeTest {
         capture("invoice")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
         awaitDisplayed("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
-
-        composeRule.onNodeWithText("گزارش‌ها").performClick()
-        awaitDisplayed("گزارش و تحلیل")
-        awaitDisplayed("خروجی گزارش دفتر مالی")
-        capture("reports")
 
         composeRule.onNodeWithText("گزارش‌ها").performScrollTo()
         composeRule.onNodeWithText("گزارش‌ها").performClick()
