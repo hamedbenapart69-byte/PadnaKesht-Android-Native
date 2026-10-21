@@ -126,7 +126,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
         OutlinedTextField(productCategory, { productCategory = it; message = null }, Modifier.fillMaxWidth(), label = { Text("دسته‌بندی کالا") }, singleLine = true)
         OutlinedTextField(stock, { stock = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
-        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (تومان)") }, singleLine = true)
         OutlinedTextField(lowStockThreshold, { lowStockThreshold = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
         Button(
             onClick = {
@@ -144,7 +144,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت محصول") }
         products.forEach { product ->
             TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatFinancialAmount(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
+                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatToman(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
             }
         }
 
@@ -231,7 +231,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 modifier = Modifier.fillMaxWidth().testTag("select-invoice-product")
             ) {
                 val selected = products.firstOrNull { it.id == selectedProduct }
-                Text("کالا: " + (selected?.let { it.name + " • موجودی " + formatFinancialAmount(it.stockQuantity) + " • " + formatFinancialAmount(it.unitPriceMinor) } ?: "انتخاب کالا"))
+                Text("کالا: " + (selected?.let { it.name + " • موجودی " + formatFinancialAmount(it.stockQuantity) + " • " + formatToman(it.unitPriceMinor) } ?: "انتخاب کالا"))
             }
             androidx.compose.material3.DropdownMenu(
                 expanded = productMenuExpanded,
@@ -239,7 +239,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             ) {
                 products.forEach { product ->
                     androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(product.name + " • موجودی " + formatFinancialAmount(product.stockQuantity) + " • " + formatFinancialAmount(product.unitPriceMinor)) },
+                        text = { Text(product.name + " • موجودی " + formatFinancialAmount(product.stockQuantity) + " • " + formatToman(product.unitPriceMinor)) },
                         onClick = { selectedProduct = product.id; productMenuExpanded = false }
                     )
                 }
@@ -265,16 +265,16 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("افزودن قلم به فاکتور") }
         cart.forEachIndexed { index, line ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${line.productName} × ${formatFinancialAmount(line.quantity)} = ${formatFinancialAmount(line.total)}")
+                Text("${line.productName} × ${formatFinancialAmount(line.quantity)} = ${formatToman(line.total)}")
                 TextButton(onClick = { cart.removeAt(index) }) { Text("حذف") }
             }
         }
         val invoiceSubtotal = cart.fold(0L) { total, line -> Math.addExact(total, line.total) }
         val parsedDiscount = invoiceDiscount.toLongOrNull()
         val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { JalaliDate.parse(it) }.getOrNull() }
-        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (تومان)") }, singleLine = true)
         OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (شمسی ۱۴۰۵/۰۷/۲۹)") }, singleLine = true)
-        Text("جمع قبل از تخفیف: ${formatFinancialAmount(invoiceSubtotal)} • تخفیف: ${formatFinancialAmount(parsedDiscount ?: 0L)} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) formatFinancialAmount(invoiceSubtotal - parsedDiscount) else "نامعتبر"}")
+        Text("جمع قبل از تخفیف: ${formatToman(invoiceSubtotal)} • تخفیف: ${formatToman(parsedDiscount ?: 0L)} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) formatToman(invoiceSubtotal - parsedDiscount) else "نامعتبر"}")
         Button(
             onClick = {
                 val customerId = selectedCustomer
@@ -306,7 +306,7 @@ fun BusinessManagement(repository: BusinessRepository) {
 
         SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
         OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
-        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (تومان)") }, singleLine = true)
         Button(
             onClick = {
                 val invoiceId = paymentInvoice.toLongOrNull()
@@ -392,8 +392,8 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
     GlassPanel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
-            Text("فاکتور #${formatFinancialAmount(invoice.id)} • مشتری ${formatFinancialAmount(invoice.customerId)} • مبلغ نهایی ${formatFinancialAmount(invoice.totalMinor)}")
-            if (invoice.discountMinor > 0L) Text("تخفیف: ${formatFinancialAmount(invoice.discountMinor)}")
+            Text("فاکتور #${formatFinancialAmount(invoice.id)} • مشتری ${formatFinancialAmount(invoice.customerId)} • مبلغ نهایی ${formatToman(invoice.totalMinor)}")
+            if (invoice.discountMinor > 0L) Text("تخفیف: ${formatToman(invoice.discountMinor)}")
             invoice.dueAtEpochDay?.let { Text("سررسید: ${JalaliDate.format(LocalDate.ofEpochDay(it))}") }
             val overdue = invoice.status == "POSTED" && balance > 0L && invoice.dueAtEpochDay?.let { it < LocalDate.now().toEpochDay() } == true
             val statusLabel = when {
@@ -403,17 +403,17 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
                 balance == 0L -> "تسویه"
                 else -> "بدهکار"
             }
-            Text("وضعیت: $statusLabel • ${formatFinancialAmount(if (invoice.status == "CANCELLED") 0L else kotlin.math.abs(balance))}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            Text("وضعیت: $statusLabel • ${formatToman(if (invoice.status == "CANCELLED") 0L else kotlin.math.abs(balance))}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
             if (returns.isNotEmpty()) {
                 Text("سوابق برگشت کالا", style = MaterialTheme.typography.labelLarge)
                 returns.forEach { returned ->
-                    Text("برگشت ${formatFinancialAmount(returned.quantity)} عدد • اعتبار ${formatFinancialAmount(returned.creditAmountMinor)} • ${returned.reason}")
+                    Text("برگشت ${formatFinancialAmount(returned.quantity)} عدد • اعتبار ${formatToman(returned.creditAmountMinor)} • ${returned.reason}")
                 }
             }
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
-                    Text("دریافت ${formatFinancialAmount(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                    Text("دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
                 }
             }
         }
@@ -454,6 +454,6 @@ private fun CustomerBalanceRow(
 ) {
     val balance by repository.observeCustomerBalance(customerId).collectAsState(initial = 0L)
     TextButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
-        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatFinancialAmount(balance)}")
+        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatToman(balance)}")
     }
 }
