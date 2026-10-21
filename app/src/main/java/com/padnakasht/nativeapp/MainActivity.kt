@@ -52,6 +52,7 @@ import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.SectionHeading
+import com.padnakasht.nativeapp.ui.PremiumBrandPanel
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
@@ -162,40 +163,9 @@ class MainActivity : FragmentActivity() {
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
-                            Card(
-                                Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.extraLarge,
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 22.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                    ) {
-                                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                            Text("پادناکِشت", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimary)
-                                            Text("دفتر مالی کسب‌وکار شما", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f))
-                                        }
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.13f),
-                                            shape = MaterialTheme.shapes.large
-                                        ) {
-                                            Text("PK", modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
-                                        }
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                        Surface(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.14f), shape = MaterialTheme.shapes.small) {
-                                            Text("● آفلاین و محلی", modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
-                                        }
-                                        Text(JalaliDate.format(LocalDate.now()), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f))
-                                    }
-                                }
-                            }
+                            com.padnakasht.nativeapp.ui.PremiumBrandPanel(
+                                dateLabel = JalaliDate.format(LocalDate.now())
+                            )
                         }
                         item {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
