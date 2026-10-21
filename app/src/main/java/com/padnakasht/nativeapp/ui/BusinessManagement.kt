@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
+import com.padnakasht.nativeapp.domain.JalaliDate
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -170,7 +171,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(productLabel, style = MaterialTheme.typography.titleSmall)
                         Text("${if (movement.quantityDelta > 0) "+" else ""}${movement.quantityDelta} • ${movement.reason}")
-                        Text(LocalDate.ofEpochDay(movement.occurredAtEpochDay).toString(), style = MaterialTheme.typography.bodySmall)
+                        Text(JalaliDate.format(LocalDate.ofEpochDay(movement.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -204,9 +205,9 @@ fun BusinessManagement(repository: BusinessRepository) {
         }
         val invoiceSubtotal = cart.fold(0L) { total, line -> Math.addExact(total, line.total) }
         val parsedDiscount = invoiceDiscount.toLongOrNull()
-        val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { JalaliDate.parse(it) }.getOrNull() }
         OutlinedTextField(invoiceDiscount, { invoiceDiscount = it.filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (واحد خرد پول)") }, singleLine = true)
-        OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (میلادی YYYY-MM-DD)") }, singleLine = true)
+        OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (شمسی ۱۴۰۵/۰۷/۲۹)") }, singleLine = true)
         Text("جمع قبل از تخفیف: $invoiceSubtotal • تخفیف: ${parsedDiscount ?: 0L} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) invoiceSubtotal - parsedDiscount else "نامعتبر"}")
         Button(
             onClick = {
@@ -214,7 +215,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 if (customerId == null || cart.isEmpty()) message = "مشتری و حداقل یک قلم کالا لازم است."
                 else if (isSaving) message = "عملیات قبلی هنوز در حال انجام است."
                 else if (parsedDiscount == null || parsedDiscount < 0 || parsedDiscount > invoiceSubtotal) message = "تخفیف باید بین صفر و جمع فاکتور باشد."
-                else if (invoiceDueDate.isNotBlank() && parsedDueDate == null) message = "سررسید را با قالب YYYY-MM-DD وارد کنید."
+                else if (invoiceDueDate.isNotBlank() && parsedDueDate == null) message = "سررسید را با قالب سال/ماه/روز شمسی وارد کنید؛ برای نمونه ۱۴۰۵/۰۷/۲۹."
                 else {
                     isSaving = true
                     scope.launch {
@@ -325,7 +326,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • مبلغ نهایی ${invoice.totalMinor}")
             if (invoice.discountMinor > 0L) Text("تخفیف: ${invoice.discountMinor}")
-            invoice.dueAtEpochDay?.let { Text("سررسید: ${LocalDate.ofEpochDay(it)}") }
+            invoice.dueAtEpochDay?.let { Text("سررسید: ${JalaliDate.format(LocalDate.ofEpochDay(it))}") }
             val overdue = invoice.status == "POSTED" && balance > 0L && invoice.dueAtEpochDay?.let { it < LocalDate.now().toEpochDay() } == true
             val statusLabel = when {
                 invoice.status == "CANCELLED" -> "لغو شده"
