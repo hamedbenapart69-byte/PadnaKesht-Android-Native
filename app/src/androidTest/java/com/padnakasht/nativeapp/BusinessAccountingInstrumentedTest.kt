@@ -172,7 +172,7 @@ class BusinessAccountingInstrumentedTest {
                 listOf(InvoiceLineEntity(invoiceId = 0, productId = productId, quantity = 2, unitPriceMinor = 100, lineTotalMinor = 200))
             )
             assertEquals(-2L, dao.getStockMovements().first().quantityDelta)
-            assertTrue(dao.cancelInvoice(invoiceId))
+            assertTrue(dao.cancelInvoice(invoiceId, 100))
             assertEquals(2L, dao.getStockMovements().first().quantityDelta)
             assertTrue(dao.adjustStock(productId, 3, "Found during count", 101))
             val movements = dao.getStockMovements()
