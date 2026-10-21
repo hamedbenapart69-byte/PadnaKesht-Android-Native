@@ -52,6 +52,7 @@ import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.SectionHeading
+import com.padnakasht.nativeapp.ui.GlassPanel
 import com.padnakasht.nativeapp.ui.PremiumBrandPanel
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
@@ -198,7 +199,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             item {
-                                Card(Modifier.fillMaxWidth()) {
+                                GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
                                         Text(formatFinancialAmount(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
@@ -207,7 +208,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                             item {
-                                Card(Modifier.fillMaxWidth()) {
+                                GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                         Text("ثبت سریع تراکنش", style = MaterialTheme.typography.titleLarge)
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -246,7 +247,7 @@ class MainActivity : FragmentActivity() {
                             item { SectionHeading("تراکنش‌های اخیر", "آخرین رویدادهای دفتر مالی") }
                             if (transactions.isEmpty()) {
                                 item {
-                                    Card(Modifier.fillMaxWidth()) {
+                                    GlassPanel(Modifier.fillMaxWidth()) {
                                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                                             Text("هنوز تراکنشی ثبت نشده", style = MaterialTheme.typography.titleMedium)
                                             Text("با ثبت اولین درآمد یا هزینه، خلاصه مالی اینجا نمایش داده می‌شود.", style = MaterialTheme.typography.bodyMedium)
@@ -255,7 +256,7 @@ class MainActivity : FragmentActivity() {
                                 }
                             } else {
                                 items(transactions.take(5), key = { "recent-${it.id}" }) { item ->
-                                    Card(Modifier.fillMaxWidth()) {
+                                    GlassPanel(Modifier.fillMaxWidth()) {
                                         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 Text(item.category, style = MaterialTheme.typography.titleMedium)
@@ -276,7 +277,7 @@ class MainActivity : FragmentActivity() {
                         } else {
                             item { SectionHeading("گزارش و تحلیل", "نمایش جداگانهٔ دفتر مالی عمومی و فروش فاکتوری") }
                             item {
-                                Card(Modifier.fillMaxWidth()) {
+                                GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text("خلاصه فروش فاکتوری", style = MaterialTheme.typography.titleMedium)
                                         if (postedInvoices.isEmpty()) {
@@ -291,7 +292,7 @@ class MainActivity : FragmentActivity() {
                             }
                             item { FinancialCharts(transactions) }
                             item {
-                                Card(Modifier.fillMaxWidth()) {
+                                GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Text("خروجی دفتر تراکنش‌های عمومی", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
@@ -304,7 +305,7 @@ class MainActivity : FragmentActivity() {
                             item { SectionHeading("تمام تراکنش‌ها", "دفتر تراکنش‌های ثبت‌شده و قابل پیگیری") }
                             if (transactions.isEmpty()) item { Text("داده‌ای برای گزارش وجود ندارد.") }
                             items(transactions, key = { "ledger-${it.id}" }) { item ->
-                                Card(Modifier.fillMaxWidth()) {
+                                GlassPanel(Modifier.fillMaxWidth()) {
                                     Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text(item.category, style = MaterialTheme.typography.titleMedium)
