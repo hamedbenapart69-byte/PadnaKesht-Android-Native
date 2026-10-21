@@ -60,6 +60,8 @@ import com.padnakasht.nativeapp.ui.PremiumBrandPanel
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
+import com.padnakasht.nativeapp.report.BusinessReportData
+import com.padnakasht.nativeapp.report.BusinessReportRow
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
@@ -132,6 +134,7 @@ class MainActivity : FragmentActivity() {
                 val postedInvoiceTotal = remember(postedInvoices) {
                     postedInvoices.fold(0L) { total, invoice -> Math.addExact(total, invoice.totalMinor) }
                 }
+                val businessCustomers by businessRepository.customers.collectAsState(initial = emptyList())
                 val allPayments by businessRepository.allPayments.collectAsState(initial = emptyList())
                 val allReturns by businessRepository.allSalesReturns.collectAsState(initial = emptyList())
                 val allRefunds by businessRepository.allRefunds.collectAsState(initial = emptyList())
@@ -143,6 +146,42 @@ class MainActivity : FragmentActivity() {
                         allRefunds.map { RefundAccountingEvent(it.invoiceId, it.refundedAtEpochDay, it.amountMinor) }
                     )
                 }
+
+                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds) {
+                    val customerNames = businessCustomers.associate { it.id to it.name }
+                    val rows = mutableListOf<com.padnakasht.nativeapp.report.BusinessReportRow>()
+                    businessInvoices.forEach { invoice ->
+                        val customer = customerNames[invoice.customerId] ?: "مشتری #${invoice.customerId}"
+                        val invoicePayments = allPayments.filter { it.invoiceId == invoice.id }
+                        val invoiceReturns = allReturns.filter { it.invoiceId == invoice.id }
+                        val invoiceRefunds = allRefunds.filter { it.invoiceId == invoice.id }
+                        val paid = invoicePayments.fold(0L) { total, event -> Math.addExact(total, event.amountMinor) }
+                        val credits = invoiceReturns.fold(0L) { total, event -> Math.addExact(total, event.creditAmountMinor) }
+                        val refunded = invoiceRefunds.fold(0L) { total, event -> Math.addExact(total, event.amountMinor) }
+                        val balance = if (invoice.status == "POSTED") maxOf(0L, Math.subtractExact(Math.subtractExact(invoice.totalMinor, credits), paid)) else 0L
+                        if (invoice.status == "POSTED") rows += com.padnakasht.nativeapp.report.BusinessReportRow(invoice.createdAtEpochDay, "فاکتور قطعی", "فاکتور #${invoice.id}", customer, invoice.totalMinor, balance, "تخفیف: ${invoice.discountMinor}")
+                        else rows += com.padnakasht.nativeapp.report.BusinessReportRow(invoice.createdAtEpochDay, "فاکتور لغوشده", "فاکتور #${invoice.id}", customer, 0L, 0L, "مبلغ اصلی: ${invoice.totalMinor}")
+                        invoicePayments.forEach { payment -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(payment.paidAtEpochDay, "دریافتی", "رسید #${payment.id}", customer, payment.amountMinor, balance, payment.note.ifBlank { payment.method }) }
+                        invoiceReturns.forEach { returned -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(returned.returnedAtEpochDay, "مرجوعی", "برگشت #${returned.id}", customer, returned.creditAmountMinor, balance, returned.reason) }
+                        invoiceRefunds.forEach { refund -> rows += com.padnakasht.nativeapp.report.BusinessReportRow(refund.refundedAtEpochDay, "بازپرداخت", "بازپرداخت #${refund.id}", customer, refund.amountMinor, balance, refund.reason) }
+                    }
+                    rows.sortedWith(compareBy<com.padnakasht.nativeapp.report.BusinessReportRow> { it.dateEpochDay }.thenBy { it.reference })
+                }
+                val businessReportData = remember(businessReportRows, businessSummary) {
+                    val today = LocalDate.now()
+                    BusinessReportData(
+                        title = "گزارش کامل فروش و دریافت‌ها",
+                        startEpochDay = businessReportRows.minOfOrNull { it.dateEpochDay } ?: today.toEpochDay(),
+                        endEpochDayInclusive = today.toEpochDay(),
+                        invoiceSalesMinor = businessSummary.invoicedSalesMinor,
+                        receiptsMinor = businessSummary.receiptsMinor,
+                        returnCreditsMinor = businessSummary.returnCreditsMinor,
+                        refundsMinor = businessSummary.refundsMinor,
+                        outstandingMinor = businessSummary.outstandingBalanceMinor,
+                        rows = businessReportRows
+                    )
+                }
+
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
                 var reportMessage by remember { mutableStateOf<String?>(null) }
                 val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -150,7 +189,7 @@ class MainActivity : FragmentActivity() {
                 ) { uri ->
                     if (uri != null) lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
-                            runCatching { FinancialReportExporter.writePdf(contentResolver, uri, transactions) }
+                            runCatching { FinancialReportExporter.writeBusinessPdf(contentResolver, uri, businessReportData) }
                         }
                         reportMessage = if (result.isSuccess) "گزارش PDF ذخیره شد." else "ساخت PDF ناموفق بود."
                     }
@@ -162,7 +201,7 @@ class MainActivity : FragmentActivity() {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
                                 val output = contentResolver.openOutputStream(uri) ?: error("Cannot open XLSX destination")
-                                output.use { FinancialReportExporter.writeXlsx(it, transactions) }
+                                output.use { FinancialReportExporter.writeBusinessXlsx(it, businessReportData) }
                             }
                         }
                         reportMessage = if (result.isSuccess) "گزارش Excel ذخیره شد." else "ساخت Excel ناموفق بود."
@@ -317,14 +356,47 @@ class MainActivity : FragmentActivity() {
                                     }
                                 }
                             }
+
+                            item {
+                                val today = LocalDate.now()
+                                val monthStart = today.withDayOfMonth(1).toEpochDay()
+                                val todayEpoch = today.toEpochDay()
+                                fun totalFor(type: String, start: Long, end: Long): Long =
+                                    businessReportRows.filter { it.type == type && it.dateEpochDay in start..end }
+                                        .fold(0L) { total, row -> Math.addExact(total, row.amountMinor) }
+                                val dailySales = totalFor("فاکتور قطعی", todayEpoch, todayEpoch)
+                                val dailyReceipts = totalFor("دریافتی", todayEpoch, todayEpoch)
+                                val dailyReturns = totalFor("مرجوعی", todayEpoch, todayEpoch)
+                                val dailyRefunds = totalFor("بازپرداخت", todayEpoch, todayEpoch)
+                                val monthlySales = totalFor("فاکتور قطعی", monthStart, todayEpoch)
+                                val monthlyReceipts = totalFor("دریافتی", monthStart, todayEpoch)
+                                val monthlyReturns = totalFor("مرجوعی", monthStart, todayEpoch)
+                                val monthlyRefunds = totalFor("بازپرداخت", monthStart, todayEpoch)
+                                GlassPanel(Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("گزارش روزانه · ${JalaliDate.format(today)}", style = MaterialTheme.typography.titleMedium)
+                                        Text("فاکتورها: ${formatToman(dailySales)}")
+                                        Text("دریافتی: ${formatToman(dailyReceipts)}")
+                                        Text("اعتبار مرجوعی: ${formatToman(dailyReturns)}")
+                                        Text("بازپرداخت: ${formatToman(dailyRefunds)}")
+                                        androidx.compose.material3.HorizontalDivider()
+                                        Text("گزارش ماه جاری · از ${JalaliDate.format(today.withDayOfMonth(1))}", style = MaterialTheme.typography.titleMedium)
+                                        Text("فاکتورها: ${formatToman(monthlySales)}")
+                                        Text("دریافتی: ${formatToman(monthlyReceipts)}")
+                                        Text("اعتبار مرجوعی: ${formatToman(monthlyReturns)}")
+                                        Text("بازپرداخت: ${formatToman(monthlyRefunds)}")
+                                    }
+                                }
+                            }
+
                             item { FinancialCharts(transactions) }
                             item {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Text("خروجی دفتر تراکنش‌های عمومی", style = MaterialTheme.typography.titleMedium)
+                                        Text("گزارش کامل فروش و جریان نقدی", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
                                         Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
-                                        Text("فاکتورهای فروش در خلاصهٔ بالا نمایش داده می‌شوند؛ خروجی فایل فعلاً فقط دفتر تراکنش‌های عمومی را شامل می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("خروجی شامل فاکتورها، پرداخت‌ها، مرجوعی‌ها، بازپرداخت‌ها، مانده‌ها و تاریخ شمسی است. دفتر درآمد/هزینهٔ عمومی همچنان در فهرست جداگانه نمایش داده می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }

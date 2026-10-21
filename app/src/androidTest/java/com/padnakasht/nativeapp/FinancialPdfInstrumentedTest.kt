@@ -11,6 +11,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.TransactionKind
 import com.padnakasht.nativeapp.report.FinancialReportExporter
+import com.padnakasht.nativeapp.report.BusinessReportData
+import com.padnakasht.nativeapp.report.BusinessReportRow
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,6 +21,55 @@ import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
 class FinancialPdfInstrumentedTest {
+
+    @Test
+    fun businessPdfExportProducesRenderablePageWithAccountingSummary() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "business-financial-pdf-test.pdf")
+        file.delete()
+        val day = LocalDate.of(2026, 10, 21).toEpochDay()
+        val report = BusinessReportData(
+            title = "گزارش فروش و دریافت‌ها",
+            startEpochDay = day,
+            endEpochDayInclusive = day,
+            invoiceSalesMinor = 100_000,
+            receiptsMinor = 60_000,
+            returnCreditsMinor = 10_000,
+            refundsMinor = 5_000,
+            outstandingMinor = 30_000,
+            rows = listOf(
+                BusinessReportRow(day, "فاکتور قطعی", "فاکتور #1", "مشتری آزمایشی", 100_000, 30_000, "فاکتور"),
+                BusinessReportRow(day, "دریافتی", "رسید #1", "مشتری آزمایشی", 60_000, 30_000, "پرداخت جزئی"),
+                BusinessReportRow(day, "مرجوعی", "برگشت #1", "مشتری آزمایشی", 10_000, 30_000, "مرجوعی"),
+                BusinessReportRow(day, "بازپرداخت", "بازپرداخت #1", "مشتری آزمایشی", 5_000, 30_000, "بازپرداخت")
+            )
+        )
+        try {
+            FinancialReportExporter.writeBusinessPdf(context.contentResolver, Uri.fromFile(file), report)
+            assertTrue("Business PDF must exist and be non-empty", file.isFile && file.length() > 500)
+            assertTrue("Business PDF header must be valid", file.inputStream().use {
+                val header = ByteArray(5)
+                it.read(header) == 5 && String(header, Charsets.US_ASCII) == "%PDF-"
+            })
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                PdfRenderer(descriptor).use { renderer ->
+                    assertTrue("Business PDF must contain at least one page", renderer.pageCount >= 1)
+                    renderer.openPage(0).use { page ->
+                        val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+                        try {
+                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            var visible = 0
+                            for (y in 0 until bitmap.height step 8) for (x in 0 until bitmap.width step 8) {
+                                if (bitmap.getPixel(x, y) != Color.WHITE) visible++
+                            }
+                            assertTrue("Business PDF must render visible report content", visible > 20)
+                        } finally { bitmap.recycle() }
+                    }
+                }
+            }
+        } finally { file.delete() }
+    }
+
     @Test
     fun pdfExportProducesRenderablePageForPersianAndJalaliContent() {
         val context = ApplicationProvider.getApplicationContext<Context>()

@@ -18,6 +18,9 @@ import java.time.LocalDate
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+data class BusinessReportRow(val dateEpochDay: Long, val type: String, val reference: String, val customer: String, val amountMinor: Long, val balanceMinor: Long = 0L, val details: String = "")
+data class BusinessReportData(val title: String, val startEpochDay: Long, val endEpochDayInclusive: Long, val invoiceSalesMinor: Long, val receiptsMinor: Long, val returnCreditsMinor: Long, val refundsMinor: Long, val outstandingMinor: Long, val rows: List<BusinessReportRow>)
+
 object FinancialReportExporter {
     fun writePdf(resolver: ContentResolver, uri: Uri, transactions: List<FinancialTransaction>) {
         val output = resolver.openOutputStream(uri) ?: error("Cannot open destination for PDF")
@@ -58,6 +61,55 @@ object FinancialReportExporter {
             } finally {
                 document.close()
             }
+        }
+    }
+
+    fun writeBusinessXlsx(output: OutputStream, report: BusinessReportData) {
+        ZipOutputStream(output).use { zip ->
+            zip.putText("[Content_Types].xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>""")
+            zip.putText("_rels/.rels", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""")
+            zip.putText("xl/workbook.xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="گزارش فروش" sheetId="1" r:id="rId1"/></sheets></workbook>""")
+            zip.putText("xl/_rels/workbook.xml.rels", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""")
+            val rows = mutableListOf<List<String>>()
+            rows += listOf(report.title, JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay)), JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive)), "", "", "", "")
+            rows += listOf("خلاصه", "فروش فاکتوری", "", report.invoiceSalesMinor.toString(), "دریافتی", report.receiptsMinor.toString(), "")
+            rows += listOf("خلاصه", "اعتبار مرجوعی", "", report.returnCreditsMinor.toString(), "بازپرداخت", report.refundsMinor.toString(), "")
+            rows += listOf("خلاصه", "بدهی باقی‌مانده", "", report.outstandingMinor.toString(), "", "", "")
+            rows += listOf("تاریخ شمسی", "نوع رویداد", "مرجع", "مشتری", "مبلغ (تومان)", "مانده بدهی", "شرح")
+            report.rows.forEach { row -> rows += listOf(JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay)), row.type, row.reference, row.customer, row.amountMinor.toString(), row.balanceMinor.toString(), row.details) }
+            val sheet = buildString {
+                append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>""")
+                rows.forEachIndexed { ri, cells ->
+                    append("<row r=\"${ri + 1}\">")
+                    cells.forEachIndexed { ci, value ->
+                        val ref = "${columnName(ci + 1)}${ri + 1}"
+                        if ((ri in 1..3 && (ci == 3 || ci == 5)) || (ri >= 5 && (ci == 4 || ci == 5))) append("<c r=\"$ref\"><v>${value.toLongOrNull() ?: 0L}</v></c>")
+                        else append("<c r=\"$ref\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${xmlEscape(value)}</t></is></c>")
+                    }
+                    append("</row>")
+                }
+                append("</sheetData></worksheet>")
+            }
+            zip.putText("xl/worksheets/sheet1.xml", sheet)
+        }
+    }
+
+    fun writeBusinessPdf(resolver: ContentResolver, uri: Uri, report: BusinessReportData) {
+        val output = resolver.openOutputStream(uri) ?: error("Cannot open destination for PDF")
+        output.use { stream ->
+            val document = PdfDocument()
+            try {
+                val lines = listOf("گزارش مالی فروش پادناکِشت", "بازه: ${JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay))} تا ${JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive))}", "فروش فاکتوری: ${persianDigits(report.invoiceSalesMinor)}", "دریافتی: ${persianDigits(report.receiptsMinor)} | اعتبار مرجوعی: ${persianDigits(report.returnCreditsMinor)}", "بازپرداخت: ${persianDigits(report.refundsMinor)} | بدهی باقی‌مانده: ${persianDigits(report.outstandingMinor)}", "تاریخ شمسی | رویداد | مرجع | مشتری | مبلغ | مانده | شرح") + report.rows.map { row -> "${JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay))} | ${row.type} | ${row.reference} | ${row.customer} | ${persianDigits(row.amountMinor)} | ${persianDigits(row.balanceMinor)} | ${row.details}" }
+                val perPage = 30
+                val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10f }
+                for (pageIndex in 0 until maxOf(1, (lines.size + perPage - 1) / perPage)) {
+                    val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create())
+                    var y = 32f
+                    lines.drop(pageIndex * perPage).take(perPage).forEach { line -> y += drawRtlText(page.canvas, line, y, paint, 515, 9f) }
+                    document.finishPage(page)
+                }
+                document.writeTo(stream)
+            } finally { document.close() }
         }
     }
 
