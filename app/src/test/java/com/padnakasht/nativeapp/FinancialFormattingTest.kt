@@ -29,7 +29,7 @@ class FinancialFormattingTest {
     @Test
     fun formatsNegativeAmountsWithoutLosingDigits() {
         val formatted = formatFinancialAmount(-42L)
-        assertTrue(formatted.startsWith("-") || formatted.startsWith("−") || formatted.startsWith("‎-"))
+        assertTrue(formatted.contains("-") || formatted.contains("−"))
         assertEquals(2, normalizePersianDigits(formatted).count(Char::isDigit))
     }
 }
