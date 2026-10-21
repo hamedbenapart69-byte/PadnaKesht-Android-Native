@@ -39,7 +39,7 @@ object FinancialReportExporter {
                         "درآمد: ${persianDigits(summary.incomeMinor)} | هزینه: ${persianDigits(summary.expenseMinor)} | خالص: ${persianDigits(summary.netMinor)}",
                         y, paint, 515, 12f
                     )
-                    y += drawRtlText(canvas, "مبالغ بر اساس واحد خرد پول ثبت‌شده‌اند.", y, paint, 515, 10f)
+                    y += drawRtlText(canvas, "تمام مبالغ به تومان هستند.", y, paint, 515, 10f)
                     y += 8f
                     y += drawRtlText(canvas, "تاریخ | نوع | دسته‌بندی | مبلغ | توضیحات", y, paint, 515, 12f)
                     y += 6f
@@ -94,7 +94,7 @@ object FinancialReportExporter {
             zip.putText("xl/workbook.xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="گزارش مالی" sheetId="1" r:id="rId1"/></sheets></workbook>""")
             zip.putText("xl/_rels/workbook.xml.rels", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""")
             val rows = mutableListOf<List<String>>()
-            rows += listOf("تاریخ", "نوع", "دسته‌بندی", "مبلغ (واحد خرد پول)", "توضیحات")
+            rows += listOf("تاریخ", "نوع", "دسته‌بندی", "مبلغ (تومان)", "توضیحات")
             rows += listOf("خلاصه", "درآمد", "", summary.incomeMinor.toString(), "")
             rows += listOf("خلاصه", "هزینه", "", summary.expenseMinor.toString(), "")
             rows += listOf("خلاصه", "خالص", "", summary.netMinor.toString(), "")
