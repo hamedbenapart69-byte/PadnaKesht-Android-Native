@@ -140,7 +140,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت محصول") }
         products.forEach { product ->
             TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${product.stockQuantity} • قیمت ${product.unitPriceMinor}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
+                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatFinancialAmount(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
             }
         }
 
@@ -205,7 +205,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
             androidx.compose.material3.OutlinedButton(
                 onClick = { customerMenuExpanded = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("select-invoice-customer")
             ) {
                 Text("مشتری: " + (customers.firstOrNull { it.id == selectedCustomer }?.name ?: "انتخاب مشتری"))
             }
@@ -224,10 +224,10 @@ fun BusinessManagement(repository: BusinessRepository) {
         androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
             androidx.compose.material3.OutlinedButton(
                 onClick = { productMenuExpanded = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("select-invoice-product")
             ) {
                 val selected = products.firstOrNull { it.id == selectedProduct }
-                Text("کالا: " + (selected?.let { it.name + " • موجودی " + it.stockQuantity + " • " + formatFinancialAmount(it.unitPriceMinor) } ?: "انتخاب کالا"))
+                Text("کالا: " + (selected?.let { it.name + " • موجودی " + formatFinancialAmount(it.stockQuantity) + " • " + formatFinancialAmount(it.unitPriceMinor) } ?: "انتخاب کالا"))
             }
             androidx.compose.material3.DropdownMenu(
                 expanded = productMenuExpanded,
@@ -235,7 +235,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             ) {
                 products.forEach { product ->
                     androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(product.name + " • موجودی " + product.stockQuantity + " • " + formatFinancialAmount(product.unitPriceMinor)) },
+                        text = { Text(product.name + " • موجودی " + formatFinancialAmount(product.stockQuantity) + " • " + formatFinancialAmount(product.unitPriceMinor)) },
                         onClick = { selectedProduct = product.id; productMenuExpanded = false }
                     )
                 }
