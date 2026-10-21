@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,6 +27,9 @@ import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.domain.JalaliDate
+import com.padnakasht.nativeapp.ui.GlassPanel
+import com.padnakasht.nativeapp.ui.PremiumBrandPanel
+import com.padnakasht.nativeapp.ui.SectionHeading
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -75,7 +77,8 @@ fun BusinessManagement(repository: BusinessRepository) {
     val cart = remember { mutableStateListOf<DraftLine>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        PadnaBrandHeader(subtitle = "مدیریت فروش، موجودی و حساب مشتریان")
+        PremiumBrandPanel(dateLabel = JalaliDate.format(LocalDate.now()))
+        SectionHeading("مدیریت کسب‌وکار", "فروش، موجودی و حساب مشتریان در یک محیط آفلاین")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها").forEach { (tab, label) ->
                 androidx.compose.material3.FilterChip(
@@ -145,7 +148,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             }
         }
 
-        Card(Modifier.fillMaxWidth()) {
+        GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("اصلاح موجودی با ثبت سابقه", style = MaterialTheme.typography.titleMedium)
                 Text("کالا را از فهرست بالا انتخاب کنید. عدد مثبت ورود و عدد منفی خروج دستی است.", style = MaterialTheme.typography.bodySmall)
@@ -190,7 +193,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         } else {
             stockMovements.take(8).forEach { movement ->
                 val productLabel = products.firstOrNull { it.id == movement.productId }?.name ?: "کالای #${movement.productId}"
-                Card(Modifier.fillMaxWidth()) {
+                GlassPanel(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(productLabel, style = MaterialTheme.typography.titleSmall)
                         Text("${if (movement.quantityDelta > 0) "+" else ""}${formatFinancialAmount(movement.quantityDelta)} • ${movement.reason}")
@@ -387,7 +390,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
     val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
     val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
-    Card(Modifier.fillMaxWidth()) {
+    GlassPanel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
             Text("فاکتور #${formatFinancialAmount(invoice.id)} • مشتری ${formatFinancialAmount(invoice.customerId)} • مبلغ نهایی ${formatFinancialAmount(invoice.totalMinor)}")
             if (invoice.discountMinor > 0L) Text("تخفیف: ${formatFinancialAmount(invoice.discountMinor)}")
