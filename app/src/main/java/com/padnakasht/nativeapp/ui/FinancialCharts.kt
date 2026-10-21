@@ -16,15 +16,30 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
 import com.padnakasht.nativeapp.domain.TransactionKind
+import com.padnakasht.nativeapp.ui.formatFinancialAmount
 import kotlin.math.abs
 import kotlin.math.max
 
 @Composable
 fun FinancialCharts(transactions: List<FinancialTransaction>) {
+    if (transactions.isEmpty()) {
+        Card(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("هنوز داده‌ای برای تحلیل وجود ندارد", style = MaterialTheme.typography.titleMedium)
+                Text("پس از ثبت چند درآمد یا هزینه، نمودارهای واقعی این بخش فعال می‌شوند.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
     val summary = remember(transactions) { LedgerRules.summarize(transactions) }
     val recent = remember(transactions) { transactions.sortedBy { it.occurredAtEpochDay }.takeLast(7) }
     val netSeries = remember(recent) {
@@ -38,18 +53,20 @@ fun FinancialCharts(transactions: List<FinancialTransaction>) {
                 Text("ترکیب درآمد و هزینه", style = MaterialTheme.typography.titleMedium)
                 Canvas(Modifier.fillMaxWidth().height(150.dp)) {
                     val total = summary.incomeMinor.toDouble() + summary.expenseMinor.toDouble()
-                    val diameter = minOf(size.height - 12f, size.width - 12f)
-                    val topLeft = Offset((size.width - diameter) / 2f, 6f)
+                    val diameter = minOf(size.height - 20f, size.width - 20f)
+                    val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
                     val chartSize = Size(diameter, diameter)
-                    if (total <= 0.0) {
-                        drawArc(scheme.outlineVariant, -90f, 360f, true, topLeft, chartSize)
-                    } else {
+                    val ring = Stroke(width = diameter * 0.19f, cap = StrokeCap.Butt)
+                    drawArc(scheme.surfaceVariant, -90f, 360f, false, topLeft, chartSize, style = ring)
+                    if (total > 0.0) {
                         val incomeSweep = (summary.incomeMinor.toDouble() / total * 360.0).toFloat()
-                        drawArc(scheme.primary, -90f, incomeSweep, true, topLeft, chartSize)
-                        drawArc(scheme.error, -90f + incomeSweep, 360f - incomeSweep, true, topLeft, chartSize)
+                        drawArc(scheme.primary, -90f, incomeSweep, false, topLeft, chartSize, style = ring)
+                        if (summary.expenseMinor > 0L) {
+                            drawArc(scheme.error, -90f + incomeSweep, 360f - incomeSweep, false, topLeft, chartSize, style = ring)
+                        }
                     }
                 }
-                Text("درآمد: ${summary.incomeMinor}  •  هزینه: ${summary.expenseMinor}")
+                Text("درآمد: ${formatFinancialAmount(summary.incomeMinor)}  •  هزینه: ${formatFinancialAmount(summary.expenseMinor)}")
             }
         }
         Card(Modifier.fillMaxWidth()) {
@@ -72,7 +89,7 @@ fun FinancialCharts(transactions: List<FinancialTransaction>) {
                         }
                     }
                 }
-                Text("سبز/اصلی: درآمد  •  رنگ هشدار: هزینه")
+                Text("درآمد با رنگ اصلی • هزینه با رنگ هشدار", color = scheme.onSurfaceVariant)
             }
         }
         Card(Modifier.fillMaxWidth()) {

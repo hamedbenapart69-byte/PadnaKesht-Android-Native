@@ -105,8 +105,8 @@ fun BusinessManagement(repository: BusinessRepository) {
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
         OutlinedTextField(productCategory, { productCategory = it; message = null }, Modifier.fillMaxWidth(), label = { Text("دسته‌بندی کالا") }, singleLine = true)
         OutlinedTextField(stock, { stock = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
-        OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
-        OutlinedTextField(lowStockThreshold, { lowStockThreshold = it.filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
+        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(lowStockThreshold, { lowStockThreshold = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
@@ -184,7 +184,7 @@ fun BusinessManagement(repository: BusinessRepository) {
 
         SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
         Text("مشتری و کالا را از فهرست بالا انتخاب کنید؛ سپس تعداد را به سبد اضافه کنید.")
-        OutlinedTextField(quantity, { quantity = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
+        OutlinedTextField(quantity, { quantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
         Button(
             onClick = {
                 val product = products.firstOrNull { it.id == selectedProduct }
@@ -204,16 +204,16 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("افزودن قلم به فاکتور") }
         cart.forEachIndexed { index, line ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${line.productName} × ${line.quantity} = ${line.total}")
+                Text("${line.productName} × ${formatFinancialAmount(line.quantity)} = ${formatFinancialAmount(line.total)}")
                 TextButton(onClick = { cart.removeAt(index) }) { Text("حذف") }
             }
         }
         val invoiceSubtotal = cart.fold(0L) { total, line -> Math.addExact(total, line.total) }
         val parsedDiscount = invoiceDiscount.toLongOrNull()
         val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { JalaliDate.parse(it) }.getOrNull() }
-        OutlinedTextField(invoiceDiscount, { invoiceDiscount = it.filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (واحد خرد پول)") }, singleLine = true)
         OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (شمسی ۱۴۰۵/۰۷/۲۹)") }, singleLine = true)
-        Text("جمع قبل از تخفیف: $invoiceSubtotal • تخفیف: ${parsedDiscount ?: 0L} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) invoiceSubtotal - parsedDiscount else "نامعتبر"}")
+        Text("جمع قبل از تخفیف: ${formatFinancialAmount(invoiceSubtotal)} • تخفیف: ${formatFinancialAmount(parsedDiscount ?: 0L)} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) formatFinancialAmount(invoiceSubtotal - parsedDiscount) else "نامعتبر"}")
         Button(
             onClick = {
                 val customerId = selectedCustomer
@@ -244,8 +244,8 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت نهایی فاکتور") }
 
         SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
-        OutlinedTextField(paymentInvoice, { paymentInvoice = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
-        OutlinedTextField(paymentAmount, { paymentAmount = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
+        OutlinedTextField(paymentInvoice, { paymentInvoice = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
+        OutlinedTextField(paymentAmount, { paymentAmount = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (واحد خرد پول)") }, singleLine = true)
         Button(
             onClick = {
                 val invoiceId = paymentInvoice.toLongOrNull()
@@ -273,7 +273,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         Text("برگشت به‌صورت مستقل ثبت می‌شود؛ موجودی افزایش می‌یابد و اعتبار مشتری از مانده فاکتور کسر می‌شود.")
         OutlinedTextField(
             returnInvoiceId,
-            { returnInvoiceId = it.filter(Char::isDigit); returnLineId = null },
+            { returnInvoiceId = normalizePersianDigits(it).filter(Char::isDigit); returnLineId = null },
             Modifier.fillMaxWidth(),
             label = { Text("شناسه فاکتور برگشت") },
             singleLine = true
@@ -288,7 +288,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 onSelect = { returnLineId = it }
             )
         }
-        OutlinedTextField(returnQuantity, { returnQuantity = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد برگشتی") }, singleLine = true)
+        OutlinedTextField(returnQuantity, { returnQuantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد برگشتی") }, singleLine = true)
         OutlinedTextField(returnReason, { returnReason = it; message = null }, Modifier.fillMaxWidth(), label = { Text("علت برگشت") }, singleLine = true)
         Button(
             onClick = {
@@ -329,8 +329,8 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
-            Text("فاکتور #${invoice.id} • مشتری ${invoice.customerId} • مبلغ نهایی ${invoice.totalMinor}")
-            if (invoice.discountMinor > 0L) Text("تخفیف: ${invoice.discountMinor}")
+            Text("فاکتور #${formatFinancialAmount(invoice.id)} • مشتری ${formatFinancialAmount(invoice.customerId)} • مبلغ نهایی ${formatFinancialAmount(invoice.totalMinor)}")
+            if (invoice.discountMinor > 0L) Text("تخفیف: ${formatFinancialAmount(invoice.discountMinor)}")
             invoice.dueAtEpochDay?.let { Text("سررسید: ${JalaliDate.format(LocalDate.ofEpochDay(it))}") }
             val overdue = invoice.status == "POSTED" && balance > 0L && invoice.dueAtEpochDay?.let { it < LocalDate.now().toEpochDay() } == true
             val statusLabel = when {
@@ -340,7 +340,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
                 balance == 0L -> "تسویه"
                 else -> "بدهکار"
             }
-            Text("وضعیت: $statusLabel • ${if (invoice.status == "CANCELLED") 0L else kotlin.math.abs(balance)}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            Text("وضعیت: $statusLabel • ${formatFinancialAmount(if (invoice.status == "CANCELLED") 0L else kotlin.math.abs(balance))}", color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
             if (returns.isNotEmpty()) {
                 Text("سوابق برگشت کالا", style = MaterialTheme.typography.labelLarge)
                 returns.forEach { returned ->

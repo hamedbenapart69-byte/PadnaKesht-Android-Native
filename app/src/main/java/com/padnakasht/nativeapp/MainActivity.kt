@@ -190,13 +190,13 @@ class MainActivity : FragmentActivity() {
                             }
                         }
                         item {
-                            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEachIndexed { index, (section, label) ->
-                                    androidx.compose.material3.SegmentedButton(
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
+                                    androidx.compose.material3.FilterChip(
                                         selected = activeSection == section,
                                         onClick = { activeSection = section },
-                                        shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index = index, count = 3),
-                                        label = { Text(label, maxLines = 1) }
+                                        label = { Text(label, maxLines = 1) },
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                             }
