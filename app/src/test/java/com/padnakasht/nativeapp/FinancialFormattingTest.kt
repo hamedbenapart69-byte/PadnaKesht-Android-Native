@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp
 
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
+import com.padnakasht.nativeapp.ui.formatToman
 import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -31,5 +32,11 @@ class FinancialFormattingTest {
         val formatted = formatFinancialAmount(-42L)
         assertTrue(formatted.contains("-") || formatted.contains("−"))
         assertEquals(2, normalizePersianDigits(formatted).count(Char::isDigit))
+    }
+
+    @Test
+    fun monetaryValuesAreExplicitlyLabeledInToman() {
+        assertTrue(formatToman(1_234_567L).contains("تومان"))
+        assertTrue(formatToman(1_234_567L).contains("۱٬۲۳۴٬۵۶۷"))
     }
 }
