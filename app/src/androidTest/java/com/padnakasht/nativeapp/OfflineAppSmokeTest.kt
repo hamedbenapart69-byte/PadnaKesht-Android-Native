@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
