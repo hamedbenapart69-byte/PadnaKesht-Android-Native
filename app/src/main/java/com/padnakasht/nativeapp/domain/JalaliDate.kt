@@ -35,7 +35,7 @@ data class JalaliDate(val year: Int, val month: Int, val day: Int) {
 
     companion object {
         private const val MIN_YEAR = -61
-        private const val MAX_YEAR = 3177
+        private const val MAX_YEAR = 3178
         private const val PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
         private val BREAKS = intArrayOf(
             -61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181,
@@ -77,8 +77,7 @@ data class JalaliDate(val year: Int, val month: Int, val day: Int) {
         fun format(date: LocalDate, persianDigits: Boolean = true): String =
             fromGregorian(date).format(persianDigits)
 
-        fun isLeapYear(year: Int): Boolean =
-            ChronoUnit.DAYS.between(startOfYear(year), startOfYear(year + 1)) == 366L
+        fun isLeapYear(year: Int): Boolean = jalaliCalendar(year).leap == 0
 
         private fun daysInMonth(year: Int, month: Int): Int = when (month) {
             in 1..6 -> 31
