@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
@@ -158,7 +159,7 @@ class OfflineAppSmokeTest {
         awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
         capture("invoice-summary")
 
-        composeRule.onNodeWithText("پادناکِشت").performScrollTo()
+        composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
