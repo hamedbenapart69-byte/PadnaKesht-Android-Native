@@ -63,6 +63,11 @@ import com.padnakasht.nativeapp.report.FinancialReportExporter
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.padnakasht.nativeapp.domain.FinancialTransaction
 import com.padnakasht.nativeapp.domain.LedgerRules
+import com.padnakasht.nativeapp.domain.BusinessAccounting
+import com.padnakasht.nativeapp.domain.InvoiceAccountingEvent
+import com.padnakasht.nativeapp.domain.PaymentAccountingEvent
+import com.padnakasht.nativeapp.domain.ReturnAccountingEvent
+import com.padnakasht.nativeapp.domain.RefundAccountingEvent
 import com.padnakasht.nativeapp.domain.OfflineInsights
 import com.padnakasht.nativeapp.domain.TransactionKind
 import kotlinx.coroutines.Dispatchers
@@ -126,6 +131,17 @@ class MainActivity : FragmentActivity() {
                 val postedInvoices = remember(businessInvoices) { businessInvoices.filter { it.status == "POSTED" } }
                 val postedInvoiceTotal = remember(postedInvoices) {
                     postedInvoices.fold(0L) { total, invoice -> Math.addExact(total, invoice.totalMinor) }
+                }
+                val allPayments by businessRepository.allPayments.collectAsState(initial = emptyList())
+                val allReturns by businessRepository.allSalesReturns.collectAsState(initial = emptyList())
+                val allRefunds by businessRepository.allRefunds.collectAsState(initial = emptyList())
+                val businessSummary = remember(businessInvoices, allPayments, allReturns, allRefunds) {
+                    BusinessAccounting.summarize(
+                        businessInvoices.map { InvoiceAccountingEvent(it.id, it.createdAtEpochDay, it.totalMinor, it.status) },
+                        allPayments.map { PaymentAccountingEvent(it.invoiceId, it.paidAtEpochDay, it.amountMinor) },
+                        allReturns.map { ReturnAccountingEvent(it.invoiceId, it.returnedAtEpochDay, it.creditAmountMinor) },
+                        allRefunds.map { RefundAccountingEvent(it.invoiceId, it.refundedAtEpochDay, it.amountMinor) }
+                    )
                 }
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
                 var reportMessage by remember { mutableStateOf<String?>(null) }
@@ -291,6 +307,13 @@ class MainActivity : FragmentActivity() {
                                             Text("جمع مبلغ فاکتورهای قطعی: " + formatToman(postedInvoiceTotal), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                                         }
                                         Text("جمع فاکتورها پس از تخفیف و پیش از اعتبار برگشت کالا است.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        androidx.compose.material3.HorizontalDivider()
+                                        Text("دریافتی ثبت‌شده: " + formatToman(businessSummary.receiptsMinor))
+                                        Text("اعتبار مرجوعی: " + formatToman(businessSummary.returnCreditsMinor))
+                                        Text("بازپرداخت ثبت‌شده: " + formatToman(businessSummary.refundsMinor))
+                                        Text("خالص دریافتی نقدی: " + formatToman(businessSummary.netCashReceiptsMinor), style = MaterialTheme.typography.titleMedium)
+                                        Text("بدهی باقی‌مانده: " + formatToman(businessSummary.outstandingBalanceMinor), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                                        Text("فروش فاکتوری، دریافتی نقدی و بازپرداخت جدا محاسبه می‌شوند؛ ارقام از رویدادهای پایگاه داده می‌آیند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }

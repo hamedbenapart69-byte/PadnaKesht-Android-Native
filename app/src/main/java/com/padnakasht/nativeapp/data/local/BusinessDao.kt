@@ -118,6 +118,15 @@ abstract class BusinessDao {
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payments WHERE invoiceId = :invoiceId")
     abstract fun observePaymentsTotal(invoiceId: Long): Flow<Long>
 
+    @Query("SELECT * FROM payments ORDER BY paidAtEpochDay DESC, id DESC")
+    abstract fun observeAllPayments(): Flow<List<PaymentEntity>>
+
+    @Query("SELECT * FROM sales_returns ORDER BY returnedAtEpochDay DESC, id DESC")
+    abstract fun observeAllSalesReturns(): Flow<List<SalesReturnEntity>>
+
+    @Query("SELECT * FROM payment_refunds ORDER BY refundedAtEpochDay DESC, id DESC")
+    abstract fun observeAllRefunds(): Flow<List<PaymentRefundEntity>>
+
     @Query("SELECT * FROM payments WHERE invoiceId = :invoiceId ORDER BY paidAtEpochDay DESC, id DESC")
     abstract fun observePayments(invoiceId: Long): Flow<List<PaymentEntity>>
 
