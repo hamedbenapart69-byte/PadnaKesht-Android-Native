@@ -127,7 +127,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-customer").performClick()
         awaitExists("مشتری ثبت شد.")
         awaitVisibleByScrolling("مشتری ثبت شد.")
-        scrollToTop()
+        awaitVisibleByScrolling("مشتری آزمایشی")
         capture("customers")
 
         composeRule.onNodeWithText("کالاها").performScrollTo()
@@ -141,7 +141,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("register-product").performClick()
         awaitExists("محصول ثبت شد.")
         awaitVisibleByScrolling("محصول ثبت شد.")
-        scrollToTop()
+        awaitVisibleByScrolling("محصول آزمایشی")
         capture("inventory")
 
         composeRule.onNodeWithText("فاکتورها").performScrollTo()
@@ -162,6 +162,7 @@ class OfflineAppSmokeTest {
         awaitDisplayed("ثبت نهایی فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
         awaitVisibleByScrolling("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        awaitVisibleByScrolling("فاکتور #۱")
         capture("invoice-summary")
 
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
