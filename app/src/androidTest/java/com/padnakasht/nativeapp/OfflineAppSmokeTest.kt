@@ -170,7 +170,7 @@ class OfflineAppSmokeTest {
         awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithTag("select-invoice-customer").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-customer").performClick()
-        awaitVisibleByScrolling("مشتری آزمایشی", substring = true)
+        awaitDisplayed("مشتری آزمایشی")
         composeRule.onNodeWithTag("invoice-customer-1").performClick()
         composeRule.onNodeWithTag("select-invoice-product").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-product").performClick()
