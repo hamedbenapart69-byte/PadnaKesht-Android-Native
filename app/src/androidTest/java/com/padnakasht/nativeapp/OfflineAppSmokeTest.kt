@@ -140,15 +140,15 @@ class OfflineAppSmokeTest {
         awaitVisibleByScrolling("ثبت سریع تراکنش")
         capture("quick-transaction")
 
-        composeRule.onNodeWithText("فروش و انبار").performScrollTo()
+        // Primary navigation is persistent; it is intentionally outside the scrolling content.
         composeRule.onNodeWithText("فروش و انبار").performClick()
-        awaitDisplayed("فروش، مشتریان و کالاها")
+        awaitVisibleByScrolling("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
         composeRule.onNodeWithTag("register-customer").performClick()
-        // Success notices are transient and are not list items; assert the persisted customer below.
-        awaitExists("مشتری ثبت شد.")
+        // A snackbar is transient and may disappear before the test observes it.
+        // Verify the durable result in the customer list instead of timing the toast.
         awaitVisibleByScrolling("مشتری آزمایشی", substring = true)
         capture("customers")
 
@@ -161,8 +161,7 @@ class OfflineAppSmokeTest {
         hideKeyboard()
         composeRule.onNodeWithTag("register-product").performScrollTo()
         composeRule.onNodeWithTag("register-product").performClick()
-        // Success notices are transient and are not list items; assert the persisted product below.
-        awaitExists("محصول ثبت شد.")
+        // Verify the saved product in the inventory list; transient snackbars are not reliable test anchors.
         awaitVisibleByScrolling("محصول آزمایشی", substring = true)
         capture("inventory")
 
@@ -171,7 +170,8 @@ class OfflineAppSmokeTest {
         awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithTag("select-invoice-customer").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-customer").performClick()
-        composeRule.onNodeWithText("مشتری آزمایشی").performClick()
+        awaitDisplayed("مشتری آزمایشی")
+        composeRule.onNodeWithTag("invoice-customer-1").performClick()
         composeRule.onNodeWithTag("select-invoice-product").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-product").performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
@@ -183,13 +183,11 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performScrollTo()
         awaitDisplayed("ثبت نهایی فاکتور")
         composeRule.onNodeWithText("ثبت نهایی فاکتور").performClick()
-        // Confirm the write operation, then capture the real post-submission invoice screen.
-        // The invoice row can be outside the composed range of the nested business section;
-        // the reports screen below independently verifies the persisted 100,000 toman total.
-        awaitExists("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
+        // The reports screen below independently verifies the persisted 100,000 toman total.
+        // Avoid anchoring the test to a transient snackbar that may disappear between frames.
+        composeRule.waitForIdle()
         capture("invoice-summary")
 
-        composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")

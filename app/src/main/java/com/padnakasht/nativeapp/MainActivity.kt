@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -57,6 +59,7 @@ import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import com.padnakasht.nativeapp.ui.SectionHeading
 import com.padnakasht.nativeapp.ui.GlassPanel
 import com.padnakasht.nativeapp.ui.PremiumBrandPanel
+import com.padnakasht.nativeapp.ui.PadnaBottomNavigation
 import com.padnakasht.nativeapp.ui.theme.PadnaKeshtTheme
 import com.padnakasht.nativeapp.domain.JalaliDate
 import com.padnakasht.nativeapp.report.FinancialReportExporter
@@ -354,8 +357,9 @@ class MainActivity : FragmentActivity() {
                 var activeSection by remember { mutableStateOf("overview") }
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(Modifier.fillMaxSize()) {
                     LazyColumn(
-                        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).testTag("main-content-list"),
+                        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).padding(bottom = 92.dp).testTag("main-content-list"),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
@@ -363,32 +367,69 @@ class MainActivity : FragmentActivity() {
                                 dateLabel = JalaliDate.format(LocalDate.now())
                             )
                         }
-                        item {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf("overview" to "نمای کلی", "business" to "فروش و انبار", "reports" to "گزارش‌ها").forEach { (section, label) ->
-                                    androidx.compose.material3.FilterChip(
-                                        selected = activeSection == section,
-                                        onClick = { if (activeSection != section) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); activeSection = section } },
-                                        label = { Text(label, maxLines = 1) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
                         if (activeSection == "overview") {
                             item {
-                                SectionHeading("خلاصه مالی", "نمای کلی از درآمد، هزینه و جریان ثبت‌شده")
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
-                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("درآمد ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatToman(summary.incomeMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+                                SectionHeading("خلاصه مالی", "فروش، دریافتی و بدهی با محاسبهٔ جداگانه")
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("فروش خالص فاکتوری", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.netSalesMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                            }
+                                        }
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1D8))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("دریافتی خالص نقدی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.netCashReceiptsMinor), style = MaterialTheme.typography.titleLarge, color = Color(0xFF94651C), maxLines = 2)
+                                            }
                                         }
                                     }
-                                    Card(Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("ماندهٔ مطالبات", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.outstandingBalanceMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, maxLines = 2)
+                                            }
+                                        }
+                                        Card(
+                                            Modifier.weight(1f),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE9ECE8))
+                                        ) {
+                                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("اعتبار مرجوعی", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text(formatToman(businessSummary.returnCreditsMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            item {
+                                SectionHeading("دفتر مالی عمومی", "درآمد و هزینه‌هایی که جدا از فاکتور ثبت می‌شوند")
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Card(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE2F2EC))) {
                                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("هزینه ثبت‌شده", style = MaterialTheme.typography.labelLarge)
-                                            Text(formatToman(summary.expenseMinor), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.error)
+                                            Text("درآمد عمومی", style = MaterialTheme.typography.labelLarge)
+                                            Text(formatToman(summary.incomeMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, maxLines = 2)
+                                        }
+                                    }
+                                    Card(Modifier.weight(1f), shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFBEAE7))) {
+                                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("هزینهٔ عمومی", style = MaterialTheme.typography.labelLarge)
+                                            Text(formatToman(summary.expenseMinor), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.error, maxLines = 2)
                                         }
                                     }
                                 }
@@ -396,9 +437,9 @@ class MainActivity : FragmentActivity() {
                             item {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("خالص جریان ثبت‌شده", style = MaterialTheme.typography.titleMedium)
+                                        Text("خالص جریان عمومی", style = MaterialTheme.typography.titleMedium)
                                         Text(formatToman(summary.netMinor), style = MaterialTheme.typography.displaySmall, color = if (summary.netMinor >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                                        Text("بر اساس تراکنش‌های عمومی ثبت‌شده؛ فروش فاکتوری جداگانه نگهداری می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("این مبلغ فقط از دفتر عمومی درآمد و هزینه محاسبه می‌شود و فروش فاکتوری یا دریافت وجه مشتری را دوباره جمع نمی‌زند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
@@ -564,6 +605,15 @@ class MainActivity : FragmentActivity() {
                                 }
                             }
                         }
+                    }
+                    PadnaBottomNavigation(
+                        selectedSection = activeSection,
+                        onSectionSelected = { section ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            activeSection = section
+                        },
+                        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                    )
                     }
                 }
                 if (pendingDeleteId != null) {
