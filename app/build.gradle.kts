@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "com.padnakasht.nativeapp"
-    compileSdk = 36
+    // Compose 1.12.1 requires compiling against API 37+ (AGP 9.4 supports up to 37).
+    // targetSdk stays 35 so runtime behavior is unchanged by this toolchain upgrade.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.padnakasht.nativeapp"
