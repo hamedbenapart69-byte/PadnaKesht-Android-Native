@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -22,6 +23,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.data.BusinessRepository
@@ -74,6 +77,15 @@ fun BusinessManagement(repository: BusinessRepository) {
     var returnQuantity by remember { mutableStateOf("1") }
     var returnReason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    val haptic = LocalHapticFeedback.current
+    // One short, explicit-outcome buzz per finished operation; silent for validation prompts.
+    LaunchedEffect(message) {
+        when (classifyOperationMessage(message)) {
+            OperationFeedback.Success -> haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            OperationFeedback.Failure -> haptic.performHapticFeedback(HapticFeedbackType.Reject)
+            OperationFeedback.None -> Unit
+        }
+    }
     var isSaving by remember { mutableStateOf(false) }
     val cart = remember { mutableStateListOf<DraftLine>() }
 

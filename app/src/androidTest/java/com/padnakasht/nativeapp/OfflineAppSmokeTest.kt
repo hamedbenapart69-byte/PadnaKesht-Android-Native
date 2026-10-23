@@ -1,7 +1,6 @@
 package com.padnakasht.nativeapp
 
 import android.content.ContentValues
-import android.view.KeyEvent
 import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
@@ -15,7 +14,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
+import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 
@@ -57,7 +58,9 @@ class OfflineAppSmokeTest {
     }
 
     private fun hideKeyboard() {
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        // Not KEYCODE_BACK: the screen now handles back by returning to the overview, so a
+        // back key with no keyboard open would navigate away mid-test.
+        Espresso.closeSoftKeyboard()
         composeRule.waitForIdle()
     }
 
@@ -198,5 +201,12 @@ class OfflineAppSmokeTest {
         // LazyColumn composes off-screen rows on demand; move to the export card first.
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(5)
         awaitVisibleByScrolling("گزارش کامل فروش و جریان نقدی")
+
+        // Back from a non-overview section returns to the overview and keeps the app open.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.waitForIdle()
+        scrollToTop()
+        awaitDisplayed("خلاصه مالی")
+        assertFalse("Back from reports must not close the app", composeRule.activity.isFinishing)
     }
 }

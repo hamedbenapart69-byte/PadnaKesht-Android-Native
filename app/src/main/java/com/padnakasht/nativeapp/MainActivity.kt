@@ -5,6 +5,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -353,6 +354,10 @@ class MainActivity : FragmentActivity() {
                 val haptic = LocalHapticFeedback.current
                 var activeSection by remember { mutableStateOf("overview") }
                 var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+                // Back from "business"/"reports" returns to the overview; on the overview the
+                // system handles back (predictive back-to-home preview on Android 13+ with the
+                // application-level opt-in in the manifest).
+                BackHandler(enabled = activeSection != "overview") { activeSection = "overview" }
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     LazyColumn(
                         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).testTag("main-content-list"),
