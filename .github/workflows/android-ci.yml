@@ -124,7 +124,8 @@ jobs:
           grep -q "^package: name='com.padnakasht.nativeapp' versionCode='[0-9][0-9]*' versionName='0.2.0'" <<<"$BADGING"
           grep -q "^sdkVersion:'26'" <<<"$BADGING"
           grep -q "^targetSdkVersion:'35'" <<<"$BADGING"
-          grep -q "Signer #1 certificate SHA-256 digest:" release-verify.txt
+          EXPECTED_RELEASE_CERT_SHA256="e646d3a76c9b2932fdf61fb76ee32de6f8bb7983e9fc93fe806e7f78b4b7ba64"
+          grep -qi "Signer #1 certificate SHA-256 digest: $EXPECTED_RELEASE_CERT_SHA256" release-verify.txt
           cp "$APK" padnakesht-release.apk
           sha256sum padnakesht-release.apk | tee padnakesht-release.apk.sha256
       - name: Publish GitHub Release with the verified APK
