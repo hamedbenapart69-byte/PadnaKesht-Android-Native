@@ -45,7 +45,8 @@ class OverdueDebtReminderDaoTest {
             )
 
             val partialId = dao.insertInvoice(InvoiceEntity(customerId = customerId, createdAtEpochDay = 90, totalMinor = 100_000, dueAtEpochDay = 69))
-            val partialLineId = dao.insertInvoiceLine(InvoiceLineEntity(invoiceId = partialId, productId = productId, quantity = 1, unitPriceMinor = 100_000, lineTotalMinor = 100_000)).let { 0L }
+            dao.insertInvoiceLine(InvoiceLineEntity(invoiceId = partialId, productId = productId, quantity = 1, unitPriceMinor = 100_000, lineTotalMinor = 100_000))
+            val partialLineId = dao.getInvoiceLines(partialId).single().id
             val paymentId = dao.insertPayment(PaymentEntity(invoiceId = partialId, amountMinor = 20_000, paidAtEpochDay = 91))
             dao.insertPaymentRefund(PaymentRefundEntity(invoiceId = partialId, paymentId = paymentId, amountMinor = 5_000, refundedAtEpochDay = 92, reason = "آزمون", idempotencyKey = "overdue-refund-test"))
             dao.insertSalesReturn(SalesReturnEntity(invoiceId = partialId, invoiceLineId = partialLineId, productId = productId, quantity = 1, creditAmountMinor = 10_000, reason = "آزمون", returnedAtEpochDay = 93))
