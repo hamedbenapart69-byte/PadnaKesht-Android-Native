@@ -34,6 +34,8 @@ jobs:
           gradle-version: '9.6.0'
       - name: Run unit tests
         run: bash scripts/ci-gradle.sh unit testDebugUnitTest
+      - name: Run Android lint
+        run: bash scripts/ci-gradle.sh lint lintDebug
       - name: Assemble debug APK
         run: bash scripts/ci-gradle.sh debug assembleDebug
       - name: Verify APK exists and calculate SHA-256
