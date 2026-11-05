@@ -712,6 +712,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             confirmButton = {
                 TextButton(
                     enabled = !isRefunding && payment != null && refundAmount.toLongOrNull()?.let { it > 0L && it <= refundable } == true && refundReason.isNotBlank(),
+                    modifier = Modifier.testTag("confirm-payment-refund"),
                     onClick = {
                         val selectedPayment = payment ?: return@TextButton
                         val amount = refundAmount.toLongOrNull() ?: return@TextButton
