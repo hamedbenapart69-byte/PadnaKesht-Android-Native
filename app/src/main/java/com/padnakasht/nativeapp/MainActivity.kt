@@ -56,6 +56,7 @@ import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.data.local.AppDatabaseFactory
+import com.padnakasht.nativeapp.data.local.DatabaseCheckpoint
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.DebtReminderSettings
@@ -323,7 +324,7 @@ class MainActivity : FragmentActivity() {
                     } else lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
-                                db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { }
+                                DatabaseCheckpoint.requireFullyCheckpointed(db.openHelper.writableDatabase)
                                 db.close()
                                 val source = getDatabasePath("padnakasht.db")
                                 val output = contentResolver.openOutputStream(uri) ?: error("Cannot open backup destination")
@@ -364,8 +365,12 @@ class MainActivity : FragmentActivity() {
                                     validation.openHelper.writableDatabase.query("PRAGMA integrity_check").use { cursor ->
                                         check(cursor.moveToFirst() && cursor.getString(0) == "ok") { "Backup database integrity check failed" }
                                     }
+                                    DatabaseCheckpoint.requireFullyCheckpointed(validation.openHelper.writableDatabase)
                                 } finally {
                                     validation.close()
+                                }
+                                listOf(File(tempFile.path + "-wal"), File(tempFile.path + "-shm")).forEach { sidecar ->
+                                    check(!sidecar.exists() || sidecar.delete()) { "Could not clear validated backup journal" }
                                 }
                                 db.close()
                                 val target = getDatabasePath("padnakasht.db")
