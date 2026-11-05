@@ -364,7 +364,7 @@ abstract class BusinessDao {
         require(Math.addExact(netPaid, payment.amountMinor) <= Math.subtractExact(invoice.totalMinor, credits)) {
             "Payment exceeds invoice balance after returns and refunds"
         }
-        return insertPayment(payment)
+        return insertPayment(payment.copy(idempotencyKey = key))
     }
 
     @Transaction
