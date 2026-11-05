@@ -17,7 +17,7 @@ Workflow هنگام بررسی APK نهایی همین اثرانگشت را ک�
 به JDK 17 یا جدیدتر نیاز است. در PowerShell ویندوز:
 
 ```powershell
-keytool -genkeypair -v -keystore .\padnakasht-release.jks -alias padnakasht -keyalg RSA -keysize 3072 -sigalg SHA256withRSA -validity 10000
+keytool -genkeypair -v -keystore .\padnakasht-release.jks -alias padnakasht-release -keyalg RSA -keysize 3072 -sigalg SHA256withRSA -validity 10000
 ```
 
 برای گذرواژهٔ مخزن و کلید، دو گذرواژهٔ قوی و متفاوت انتخاب کنید. فایل `padnakasht-release.jks` را در فضای امن و آفلاین نگه دارید. اگر این فایل یا گذرواژه‌ها گم شوند، انتشار به‌روزرسانی‌های سازگار با همین امضا ممکن نخواهد بود.
@@ -38,7 +38,7 @@ keytool -genkeypair -v -keystore .\padnakasht-release.jks -alias padnakasht -key
 
 - `RELEASE_KEYSTORE_BASE64`: مقدار Base64 فایل JKS
 - `RELEASE_STORE_PASSWORD`: گذرواژهٔ مخزن JKS
-- `RELEASE_KEY_ALIAS`: مقدار `padnakasht`
+- `RELEASE_KEY_ALIAS`: مقدار `padnakasht-release`
 - `RELEASE_KEY_PASSWORD`: گذرواژهٔ کلید
 
 مقادیر را در پیام یا کد مخزن قرار ندهید. هرگز فایل JKS را commit یا در Artifact عمومی آپلود نکنید.
