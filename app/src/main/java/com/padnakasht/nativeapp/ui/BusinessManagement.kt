@@ -53,6 +53,13 @@ fun BusinessManagement(repository: BusinessRepository) {
     var customerName by remember { mutableStateOf("") }
     var customerPhone by remember { mutableStateOf("") }
     var customerSearch by remember { mutableStateOf("") }
+    var editingCustomerId by remember { mutableStateOf<Long?>(null) }
+    var editingCustomerName by remember { mutableStateOf("") }
+    var editingCustomerPhone by remember { mutableStateOf("") }
+    var editingCustomerNotes by remember { mutableStateOf("") }
+    var adjustingCustomerId by remember { mutableStateOf<Long?>(null) }
+    var customerBalanceDelta by remember { mutableStateOf("") }
+    var customerBalanceReason by remember { mutableStateOf("") }
     var activeBusinessTab by remember { mutableStateOf("customers") }
     var productName by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
@@ -128,7 +135,29 @@ fun BusinessManagement(repository: BusinessRepository) {
                 phone = customer.phone,
                 selected = selectedCustomer == customer.id,
                 repository = repository,
-                onSelect = { selectedCustomer = customer.id }
+                isActive = customer.isActive,
+                onSelect = { selectedCustomer = customer.id },
+                onEdit = {
+                    editingCustomerId = customer.id
+                    editingCustomerName = customer.name
+                    editingCustomerPhone = customer.phone
+                    editingCustomerNotes = customer.notes
+                },
+                onAdjustBalance = {
+                    adjustingCustomerId = customer.id
+                    customerBalanceDelta = ""
+                    customerBalanceReason = ""
+                },
+                onToggleActive = {
+                    scope.launch {
+                        runCatching { repository.setCustomerActive(customer.id, !customer.isActive) }
+                            .onSuccess {
+                                if (customer.isActive && selectedCustomer == customer.id) selectedCustomer = null
+                                message = if (customer.isActive) "مشتری بایگانی شد؛ سوابق مالی حفظ شدند." else "مشتری دوباره فعال شد."
+                            }
+                            .onFailure { message = "تغییر وضعیت مشتری انجام نشد: ${it.message ?: "خطای نامشخص"}" }
+                    }
+                }
             )
         }
 
@@ -230,7 +259,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 expanded = customerMenuExpanded,
                 onDismissRequest = { customerMenuExpanded = false }
             ) {
-                customers.forEach { customer ->
+                customers.filter { it.isActive }.forEach { customer ->
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(customer.name) },
                         onClick = { selectedCustomer = customer.id; customerMenuExpanded = false }
@@ -395,6 +424,70 @@ fun BusinessManagement(repository: BusinessRepository) {
         }
         if (message != null) Text(message!!, color = if (message!!.contains("ناموفق") || message!!.contains("نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
     }
+
+    if (editingCustomerId != null) {
+        AlertDialog(
+            onDismissRequest = { editingCustomerId = null },
+            title = { Text("ویرایش مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(editingCustomerName, { editingCustomerName = it }, label = { Text("نام مشتری") }, singleLine = true)
+                    OutlinedTextField(editingCustomerPhone, { editingCustomerPhone = it }, label = { Text("تلفن") }, singleLine = true)
+                    OutlinedTextField(editingCustomerNotes, { editingCustomerNotes = it }, label = { Text("یادداشت") })
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = editingCustomerName.isNotBlank() && !isSaving, onClick = {
+                    val id = editingCustomerId ?: return@TextButton
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.updateCustomer(id, editingCustomerName, editingCustomerPhone, editingCustomerNotes) }
+                            .onSuccess { message = "اطلاعات مشتری ذخیره شد."; editingCustomerId = null }
+                            .onFailure { message = "ویرایش مشتری ناموفق بود: ${it.message ?: "خطای نامشخص"}" }
+                            .also { isSaving = false }
+                    }
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editingCustomerId = null }) { Text("انصراف") } }
+        )
+    }
+
+    if (adjustingCustomerId != null) {
+        AlertDialog(
+            onDismissRequest = { adjustingCustomerId = null },
+            title = { Text("اصلاح مانده حساب مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("مقدار مثبت، بدهی مشتری را افزایش می‌دهد؛ مقدار منفی، بدهی را کاهش می‌دهد.")
+                    OutlinedTextField(
+                        customerBalanceDelta,
+                        { value ->
+                            val normalized = normalizePersianDigits(value)
+                            customerBalanceDelta = if (normalized == "-") normalized
+                            else normalized.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') }
+                        },
+                        label = { Text("تغییر مانده (تومان)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(customerBalanceReason, { customerBalanceReason = it }, label = { Text("علت اصلاح") })
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = customerBalanceDelta.toLongOrNull()?.let { it != 0L } == true && customerBalanceReason.isNotBlank() && !isSaving, onClick = {
+                    val id = adjustingCustomerId ?: return@TextButton
+                    val delta = customerBalanceDelta.toLongOrNull() ?: return@TextButton
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.adjustCustomerBalance(id, delta, customerBalanceReason) }
+                            .onSuccess { message = "اصلاح حساب ثبت شد."; adjustingCustomerId = null }
+                            .onFailure { message = "اصلاح حساب ناموفق بود: ${it.message ?: "خطای نامشخص"}" }
+                            .also { isSaving = false }
+                    }
+                }) { Text("ثبت اصلاح حساب") }
+            },
+            dismissButton = { TextButton(onClick = { adjustingCustomerId = null }) { Text("انصراف") } }
+        )
+    }
 }
 
 @Composable
@@ -503,10 +596,21 @@ private fun CustomerBalanceRow(
     phone: String,
     selected: Boolean,
     repository: BusinessRepository,
-    onSelect: () -> Unit
+    isActive: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onAdjustBalance: () -> Unit,
+    onToggleActive: () -> Unit
 ) {
     val balance by repository.observeCustomerBalance(customerId).collectAsState(initial = 0L)
-    TextButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
-        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatToman(balance)}")
+    Column(Modifier.fillMaxWidth()) {
+        TextButton(onClick = onSelect, enabled = isActive, modifier = Modifier.fillMaxWidth()) {
+            Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatToman(balance)}${if (isActive) "" else " • بایگانی"}")
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) { Text("ویرایش") }
+            TextButton(onClick = onAdjustBalance, modifier = Modifier.weight(1f)) { Text("اصلاح حساب") }
+            TextButton(onClick = onToggleActive, modifier = Modifier.weight(1f)) { Text(if (isActive) "بایگانی" else "فعال‌سازی") }
+        }
     }
 }
