@@ -131,10 +131,13 @@ class MainActivity : FragmentActivity() {
         setContent {
             PadnaKeshtTheme {
                 var authenticated by remember { mutableStateOf(false) }
+                // Keep Activity Result launchers composed while Android's document picker is in front.
+                // Otherwise ON_STOP would dispose them before their result callback is delivered.
+                var externalActivityPending by remember { mutableStateOf(false) }
                 val lifecycleOwner = LocalLifecycleOwner.current
                 DisposableEffect(lifecycleOwner) {
                     val lockOnBackground = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_STOP) authenticated = false
+                        if (event == Lifecycle.Event.ON_STOP && !externalActivityPending) authenticated = false
                     }
                     lifecycleOwner.lifecycle.addObserver(lockOnBackground)
                     onDispose { lifecycleOwner.lifecycle.removeObserver(lockOnBackground) }
@@ -297,7 +300,10 @@ class MainActivity : FragmentActivity() {
                 val backupLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/octet-stream")
                 ) { uri ->
-                    if (uri != null) lifecycleScope.launch {
+                    externalActivityPending = false
+                    if (uri == null) {
+                        authenticated = false
+                    } else lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
                                 db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { }
@@ -314,12 +320,16 @@ class MainActivity : FragmentActivity() {
                             recreate()
                             "ساخت پشتیبان ناموفق بود: ${result.exceptionOrNull()?.message ?: "خطای ناشناخته"}"
                         }
+                        authenticated = false
                     }
                 }
                 val restoreLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenDocument()
                 ) { uri ->
-                    if (uri != null) lifecycleScope.launch {
+                    externalActivityPending = false
+                    if (uri == null) {
+                        authenticated = false
+                    } else lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
                                 val tempName = "padnakasht-restore-validation.db"
@@ -363,22 +373,30 @@ class MainActivity : FragmentActivity() {
                             recreate()
                             "بازیابی انجام نشد؛ پایگاه دادهٔ فعلی حفظ می‌شود. ${result.exceptionOrNull()?.message ?: "خطای ناشناخته"}"
                         }
+                        authenticated = false
                     }
                 }
                 val pdfLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/pdf")
                 ) { uri ->
-                    if (uri != null) lifecycleScope.launch {
+                    externalActivityPending = false
+                    if (uri == null) {
+                        authenticated = false
+                    } else lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching { FinancialReportExporter.writeBusinessPdf(contentResolver, uri, businessReportData) }
                         }
                         reportMessage = if (result.isSuccess) "گزارش PDF ذخیره شد." else "ساخت PDF ناموفق بود."
+                        authenticated = false
                     }
                 }
                 val xlsxLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 ) { uri ->
-                    if (uri != null) lifecycleScope.launch {
+                    externalActivityPending = false
+                    if (uri == null) {
+                        authenticated = false
+                    } else lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
                             runCatching {
                                 val output = contentResolver.openOutputStream(uri) ?: error("Cannot open XLSX destination")
@@ -386,6 +404,7 @@ class MainActivity : FragmentActivity() {
                             }
                         }
                         reportMessage = if (result.isSuccess) "گزارش Excel ذخیره شد." else "ساخت Excel ناموفق بود."
+                        authenticated = false
                     }
                 }
                 var amount by remember { mutableStateOf("") }
@@ -583,14 +602,14 @@ class MainActivity : FragmentActivity() {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Text("گزارش کامل فروش، خرید و جریان نقدی", style = MaterialTheme.typography.titleMedium)
-                                        Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
-                                        Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
+                                        Button(onClick = { externalActivityPending = true; pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
+                                        Button(onClick = { externalActivityPending = true; xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
                                         androidx.compose.material3.OutlinedButton(
-                                            onClick = { backupLauncher.launch("padnakasht-encrypted-backup.db") },
+                                            onClick = { externalActivityPending = true; backupLauncher.launch("padnakasht-encrypted-backup.db") },
                                             modifier = Modifier.fillMaxWidth()
                                         ) { Text("ساخت پشتیبان رمزگذاری‌شده") }
                                         androidx.compose.material3.OutlinedButton(
-                                            onClick = { restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3", "*/*")) },
+                                            onClick = { externalActivityPending = true; restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3", "*/*")) },
                                             modifier = Modifier.fillMaxWidth()
                                         ) { Text("بازیابی پشتیبان") }
                                         if (backupMessage != null) Text(backupMessage!!, color = MaterialTheme.colorScheme.primary)
