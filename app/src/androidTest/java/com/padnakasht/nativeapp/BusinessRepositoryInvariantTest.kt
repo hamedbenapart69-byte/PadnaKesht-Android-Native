@@ -105,6 +105,32 @@ class BusinessRepositoryInvariantTest {
     }
 
     @Test
+    fun cancellingInvoiceRefundsOnlyTheRemainingReceiptAmount() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-cancel-after-partial-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Refund then cancel customer"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "Refund then cancel product", sku = "INV-CANCEL-AFTER-REFUND", stockQuantity = 2, unitPriceMinor = 500)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val paymentId = repository.receivePayment(invoiceId, 200, "receipt")
+            repository.refundPayment(invoiceId, paymentId, 75, "partial refund", "cancel-after-refund-partial")
+            
+            assertTrue(repository.cancelInvoice(invoiceId))
+            assertEquals(200L, dao.getRefundsTotal(invoiceId))
+            assertEquals(0L, repository.outstandingBalance(invoiceId))
+            assertEquals(2, dao.observeRefunds(invoiceId).first().size)
+            assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-cancel-after-partial-refund-test.db").delete()
+        }
+    }
+
+    @Test
     fun partialRefundIsIdempotentAndReopensCustomerReceivable() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "repository-partial-refund-test.db")
