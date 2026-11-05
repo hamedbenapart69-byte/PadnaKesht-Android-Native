@@ -89,8 +89,20 @@ class PurchaseManagementTest {
                 repository.createPurchase(
                     supplierName = "تأمین‌کننده",
                     lines = listOf(
-                        PurchaseLineEntity(0L, productId, 2L, 50L, 100L),
-                        PurchaseLineEntity(0L, 999_999L, 1L, 80L, 80L)
+                        PurchaseLineEntity(
+                            purchaseId = 0L,
+                            productId = productId,
+                            quantity = 2L,
+                            unitCostMinor = 50L,
+                            lineTotalMinor = 100L
+                        ),
+                        PurchaseLineEntity(
+                            purchaseId = 0L,
+                            productId = 999_999L,
+                            quantity = 1L,
+                            unitCostMinor = 80L,
+                            lineTotalMinor = 80L
+                        )
                     )
                 )
             } catch (_: IllegalStateException) {
