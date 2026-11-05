@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -132,7 +134,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         if (activeBusinessTab == "customers") {
         SectionHeading("مشتریان", "ثبت و جست‌وجوی مشتریان و مانده حساب")
         OutlinedTextField(customerName, { customerName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام مشتری") }, singleLine = true)
-        OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, singleLine = true)
+        OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
@@ -200,9 +202,9 @@ fun BusinessManagement(repository: BusinessRepository) {
                 }
             }
         }
-        OutlinedTextField(stock, { stock = it }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه ($productUnitLabel)") }, singleLine = true)
-        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت هر $productUnitLabel (تومان)") }, singleLine = true)
-        OutlinedTextField(lowStockThreshold, { lowStockThreshold = it; message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی ($productUnitLabel؛ صفر = غیرفعال)") }, singleLine = true)
+        OutlinedTextField(stock, { stock = it }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه ($productUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت هر $productUnitLabel (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+        OutlinedTextField(lowStockThreshold, { lowStockThreshold = it; message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی ($productUnitLabel؛ صفر = غیرفعال)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
@@ -269,6 +271,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                     },
                     Modifier.fillMaxWidth(),
                     label = { Text("تغییر مقدار (+/-)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
                 OutlinedTextField(adjustmentReason, { adjustmentReason = it }, Modifier.fillMaxWidth(), label = { Text("علت اصلاح موجودی") }, singleLine = true)
@@ -360,7 +363,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             }
         }
         val selectedInvoiceProduct = products.firstOrNull { it.id == selectedProduct }
-        OutlinedTextField(quantity, { quantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار (${selectedInvoiceProduct?.unitLabel ?: "واحد کالا"})") }, singleLine = true)
+        OutlinedTextField(quantity, { quantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار (${selectedInvoiceProduct?.unitLabel ?: "واحد کالا"})") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         Button(
             onClick = {
                 val product = selectedInvoiceProduct
@@ -387,7 +390,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         val invoiceSubtotal = cart.fold(0L) { total, line -> Math.addExact(total, line.total) }
         val parsedDiscount = invoiceDiscount.toLongOrNull()
         val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { JalaliDate.parse(it) }.getOrNull() }
-        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (تومان)") }, singleLine = true)
+        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
         OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (شمسی ۱۴۰۵/۰۷/۲۹)") }, singleLine = true)
         Text("جمع قبل از تخفیف: ${formatToman(invoiceSubtotal)} • تخفیف: ${formatToman(parsedDiscount ?: 0L)} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) formatToman(invoiceSubtotal - parsedDiscount) else "نامعتبر"}")
         Button(
@@ -420,8 +423,8 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت نهایی فاکتور") }
 
         SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
-        OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
-        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (تومان)") }, singleLine = true)
+        OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
         Button(
             onClick = {
                 val invoiceId = paymentInvoice.toLongOrNull()
@@ -453,6 +456,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             { returnInvoiceId = normalizePersianDigits(it).filter(Char::isDigit); returnLineId = null; returnQuantityScale = 1L; returnUnitLabel = "عدد" },
             Modifier.fillMaxWidth(),
             label = { Text("شناسه فاکتور برگشت") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
         val selectedReturnInvoice = invoices.firstOrNull { it.id == returnInvoiceId.toLongOrNull() }
@@ -465,7 +469,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 onSelect = { lineId, scale, label -> returnLineId = lineId; returnQuantityScale = scale; returnUnitLabel = label }
             )
         }
-        OutlinedTextField(returnQuantity, { returnQuantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار برگشتی ($returnUnitLabel)") }, singleLine = true)
+        OutlinedTextField(returnQuantity, { returnQuantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار برگشتی ($returnUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         OutlinedTextField(returnReason, { returnReason = it; message = null }, Modifier.fillMaxWidth(), label = { Text("علت برگشت") }, singleLine = true)
         Button(
             onClick = {
@@ -507,7 +511,7 @@ fun BusinessManagement(repository: BusinessRepository) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(editingCustomerName, { editingCustomerName = it }, label = { Text("نام مشتری") }, singleLine = true)
-                    OutlinedTextField(editingCustomerPhone, { editingCustomerPhone = it }, label = { Text("تلفن") }, singleLine = true)
+                    OutlinedTextField(editingCustomerPhone, { editingCustomerPhone = it }, label = { Text("تلفن") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true)
                     OutlinedTextField(editingCustomerNotes, { editingCustomerNotes = it }, label = { Text("یادداشت") })
                 }
             },
@@ -537,9 +541,9 @@ fun BusinessManagement(repository: BusinessRepository) {
                     OutlinedTextField(editingProductName, { editingProductName = it }, label = { Text("نام کالا") }, singleLine = true)
                     OutlinedTextField(editingProductSku, { editingProductSku = it }, label = { Text("کد یکتا") }, singleLine = true)
                     OutlinedTextField(editingProductCategory, { editingProductCategory = it }, label = { Text("دسته‌بندی") }, singleLine = true)
-                    OutlinedTextField(editingProductPrice, { editingProductPrice = normalizePersianDigits(it).filter(Char::isDigit) }, label = { Text("قیمت فعلی (تومان)") }, singleLine = true)
+                    OutlinedTextField(editingProductPrice, { editingProductPrice = normalizePersianDigits(it).filter(Char::isDigit) }, label = { Text("قیمت فعلی (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                     Text("واحد کالا: $editingProductUnitLabel (برای حفظ سوابق، واحد پس از ایجاد قابل تغییر نیست)")
-                    OutlinedTextField(editingProductLowStock, { editingProductLowStock = it }, label = { Text("حد هشدار موجودی ($editingProductUnitLabel)") }, singleLine = true)
+                    OutlinedTextField(editingProductLowStock, { editingProductLowStock = it }, label = { Text("حد هشدار موجودی ($editingProductUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
                 }
             },
             confirmButton = {
@@ -581,6 +585,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                             else normalized.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') }
                         },
                         label = { Text("تغییر مانده (تومان)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true
                     )
                     OutlinedTextField(customerBalanceReason, { customerBalanceReason = it }, label = { Text("علت اصلاح") })
@@ -699,6 +704,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
                         refundAmount,
                         { value -> refundAmount = normalizePersianDigits(value).filter(Char::isDigit); refundOperationKey = null; refundMessage = null },
                         label = { Text("مبلغ بازپرداخت (تومان)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )
                     OutlinedTextField(
