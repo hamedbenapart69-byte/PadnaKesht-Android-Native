@@ -133,7 +133,10 @@ class PurchaseManagementTest {
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
         try {
-            assertEquals(9L, migrated.businessDao().getProduct(productId)?.stockQuantity)
+            val migratedProduct = migrated.businessDao().getProduct(productId)
+            assertEquals(9L, migratedProduct?.stockQuantity)
+            assertEquals("عدد", migratedProduct?.unitLabel)
+            assertEquals(1L, migratedProduct?.quantityScale)
             assertTrue(migrated.businessDao().observePurchases().first().isEmpty())
         } finally {
             migrated.close()
