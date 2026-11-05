@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PurchaseLineEntity::class,
         PurchasePaymentEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +33,15 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE products ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN unitLabel TEXT NOT NULL DEFAULT 'عدد'")
+                db.execSQL("ALTER TABLE products ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE purchase_lines ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
             }
         }
 
