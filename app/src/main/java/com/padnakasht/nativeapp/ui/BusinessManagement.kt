@@ -646,7 +646,7 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             title = { Text("ثبت بازپرداخت") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("این بازپرداخت به رسید انتخاب‌شده متصل می‌شود و از مانده بدهی مشتری کم نمی‌کند؛ در واقع وجه پرداخت‌شده به مشتری برمی‌گردد.")
+                    Text("این بازپرداخت به رسید انتخاب‌شده متصل می‌شود؛ مبلغ بازپرداخت به مانده بدهی فاکتور اضافه خواهد شد.")
                     Text("حداکثر قابل بازپرداخت: ${formatToman(refundable)}")
                     OutlinedTextField(
                         refundAmount,
