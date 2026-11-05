@@ -28,6 +28,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.onDispose
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -126,6 +131,14 @@ class MainActivity : FragmentActivity() {
         setContent {
             PadnaKeshtTheme {
                 var authenticated by remember { mutableStateOf(false) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val lockOnBackground = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_STOP) authenticated = false
+                    }
+                    lifecycleOwner.lifecycle.addObserver(lockOnBackground)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(lockOnBackground) }
+                }
                 if (!authenticated) {
                     PinGate(
                         context = applicationContext,
