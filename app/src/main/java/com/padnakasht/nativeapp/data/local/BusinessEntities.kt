@@ -174,6 +174,68 @@ data class PaymentRefundEntity(
     }
 }
 
+
+@Entity(
+    tableName = "purchases",
+    indices = [Index(value = ["occurredAtEpochDay"]), Index(value = ["supplierName"])]
+)
+data class PurchaseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val supplierName: String,
+    val occurredAtEpochDay: Long,
+    val totalMinor: Long = 0,
+    val status: String = "POSTED",
+    val notes: String = ""
+) {
+    init {
+        require(supplierName.isNotBlank())
+        require(totalMinor >= 0L)
+    }
+}
+
+@Entity(
+    tableName = "purchase_lines",
+    foreignKeys = [
+        ForeignKey(entity = PurchaseEntity::class, parentColumns = ["id"], childColumns = ["purchaseId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index(value = ["purchaseId"]), Index(value = ["productId"])]
+)
+data class PurchaseLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val purchaseId: Long,
+    val productId: Long,
+    val quantity: Long,
+    val unitCostMinor: Long,
+    val lineTotalMinor: Long
+) {
+    init {
+        require(quantity > 0L)
+        require(unitCostMinor >= 0L)
+        require(lineTotalMinor >= 0L)
+    }
+}
+
+@Entity(
+    tableName = "purchase_payments",
+    foreignKeys = [ForeignKey(entity = PurchaseEntity::class, parentColumns = ["id"], childColumns = ["purchaseId"], onDelete = ForeignKey.RESTRICT)],
+    indices = [Index(value = ["purchaseId"]), Index(value = ["idempotencyKey"], unique = true)]
+)
+data class PurchasePaymentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val purchaseId: Long,
+    val amountMinor: Long,
+    val paidAtEpochDay: Long,
+    val method: String = "CASH",
+    val note: String = "",
+    val idempotencyKey: String
+) {
+    init {
+        require(amountMinor > 0L)
+        require(idempotencyKey.isNotBlank())
+    }
+}
+
 @Entity(
     tableName = "stock_movements",
     foreignKeys = [
