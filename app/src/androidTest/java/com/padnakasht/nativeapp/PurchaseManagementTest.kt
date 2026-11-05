@@ -25,7 +25,7 @@ class PurchaseManagementTest {
         val builder = Room.databaseBuilder(context, AppDatabase::class.java, name)
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
         if (withMigrations) {
-            builder.addMigrations(AppDatabase.MIGRATION_11_12)
+            builder.addMigrations(AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13)
         }
         return builder.build()
     }
@@ -126,7 +126,7 @@ class PurchaseManagementTest {
         }
 
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_11_12)
+            .addMigrations(AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13)
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
         try {
