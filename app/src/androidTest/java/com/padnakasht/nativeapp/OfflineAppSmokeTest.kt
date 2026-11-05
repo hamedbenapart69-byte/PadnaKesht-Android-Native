@@ -207,11 +207,11 @@ class OfflineAppSmokeTest {
         awaitExists("دریافت ثبت شد.")
         awaitVisibleByScrolling("بازپرداخت از این رسید", substring = true)
         composeRule.onNodeWithText("بازپرداخت از این رسید", substring = true).performClick()
-        awaitDisplayed("ثبت بازپرداخت")
+        awaitDisplayed("حداکثر قابل بازپرداخت: ۱۰۰٬۰۰۰ تومان")
         composeRule.onNodeWithText("مبلغ بازپرداخت (تومان)").performTextInput("20000")
         composeRule.onNodeWithText("علت بازپرداخت").performTextInput("آزمون بازپرداخت جزئی")
         hideKeyboard()
-        composeRule.onNodeWithText("ثبت بازپرداخت").performClick()
+        composeRule.onNodeWithTag("confirm-payment-refund").performClick()
         awaitVisibleByScrolling("بازپرداخت ثبت شد", substring = true)
         awaitVisibleByScrolling("وضعیت: بدهکار • ۲۰٬۰۰۰ تومان")
 
