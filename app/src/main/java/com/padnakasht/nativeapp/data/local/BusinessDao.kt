@@ -195,8 +195,14 @@ abstract class BusinessDao {
         lines.forEach { line ->
             require(line.quantity > 0L) { "Purchase quantity must be positive" }
             require(line.unitCostMinor >= 0L) { "Unit cost cannot be negative" }
-            val lineTotal = Math.multiplyExact(line.quantity, line.unitCostMinor)
-            require(line.lineTotalMinor == lineTotal) { "Purchase line total does not match quantity × unit cost" }
+            require(line.quantityScale > 0L) { "Purchase quantity scale must be positive" }
+            val product = getProduct(line.productId) ?: error("Product not found")
+            require(product.isActive) { "Cannot purchase into an archived product" }
+            require(line.quantityScale == product.quantityScale) { "Purchase quantity scale does not match the product unit" }
+            val lineTotal = com.padnakasht.nativeapp.domain.calculateScaledAmount(
+                line.quantity, line.unitCostMinor, line.quantityScale
+            )
+            require(line.lineTotalMinor == lineTotal) { "Purchase line total does not match quantity × unit cost ÷ scale" }
             total = Math.addExact(total, lineTotal)
         }
         require(initialPaymentMinor <= total) { "Initial payment cannot exceed purchase total" }
@@ -307,8 +313,14 @@ abstract class BusinessDao {
         lines.forEach { line ->
             require(line.quantity > 0) { "Quantity must be positive" }
             require(line.unitPriceMinor >= 0) { "Unit price must not be negative" }
-            val lineTotal = Math.multiplyExact(line.quantity, line.unitPriceMinor)
-            require(line.lineTotalMinor == lineTotal) { "Line total does not match quantity × unit price" }
+            require(line.quantityScale > 0L) { "Quantity scale must be positive" }
+            val product = getProduct(line.productId) ?: error("Product not found")
+            require(product.isActive) { "Cannot sell an archived product" }
+            require(line.quantityScale == product.quantityScale) { "Invoice quantity scale does not match the product unit" }
+            val lineTotal = com.padnakasht.nativeapp.domain.calculateScaledAmount(
+                line.quantity, line.unitPriceMinor, line.quantityScale
+            )
+            require(line.lineTotalMinor == lineTotal) { "Line total does not match quantity × unit price ÷ scale" }
             total = Math.addExact(total, lineTotal)
         }
         require(invoice.discountMinor >= 0L) { "Discount cannot be negative" }
