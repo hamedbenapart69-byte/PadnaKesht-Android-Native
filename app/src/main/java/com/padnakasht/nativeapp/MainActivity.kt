@@ -55,6 +55,7 @@ import androidx.room.Room
 import com.padnakasht.nativeapp.data.TransactionRepository
 import com.padnakasht.nativeapp.data.BusinessRepository
 import com.padnakasht.nativeapp.data.local.AppDatabase
+import com.padnakasht.nativeapp.data.local.AppDatabaseFactory
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
 import com.padnakasht.nativeapp.ui.BusinessManagement
@@ -122,13 +123,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        System.loadLibrary("sqlcipher")
         val passphrase = DatabasePassphraseProvider.getOrCreate(applicationContext)
-        val factory = SupportOpenHelperFactory(passphrase)
-        val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "padnakasht.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8, AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11, AppDatabase.MIGRATION_11_12, AppDatabase.MIGRATION_12_13)
-            .openHelperFactory(factory)
-            .build()
+        val db = AppDatabaseFactory.open(applicationContext, passphrase = passphrase)
         val repository = TransactionRepository(db.transactionDao())
         val businessRepository = BusinessRepository(db.businessDao())
         setContent {
