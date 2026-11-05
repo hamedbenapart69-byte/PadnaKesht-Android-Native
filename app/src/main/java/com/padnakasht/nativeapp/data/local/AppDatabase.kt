@@ -18,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockMovementEntity::class,
         SalesReturnEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +26,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+            }
+        }
 
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
