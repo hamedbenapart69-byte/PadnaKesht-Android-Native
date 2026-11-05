@@ -146,7 +146,7 @@ class OfflineAppSmokeTest {
 
         // Primary navigation remains visible while the content list scrolls.
         composeRule.onNodeWithText("فروش و انبار").performClick()
-        awaitVisibleByScrolling("فروش، مشتریان و کالاها")
+        awaitVisibleByScrolling("مدیریت کسب‌وکار")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
