@@ -39,9 +39,11 @@ private data class PurchaseDraftLine(
     val productId: Long,
     val productName: String,
     val quantity: Long,
-    val unitCostMinor: Long
+    val unitCostMinor: Long,
+    val quantityScale: Long,
+    val unitLabel: String
 ) {
-    val totalMinor: Long get() = Math.multiplyExact(quantity, unitCostMinor)
+    val totalMinor: Long get() = com.padnakasht.nativeapp.domain.calculateScaledAmount(quantity, unitCostMinor, quantityScale)
 }
 
 @Composable
@@ -75,7 +77,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
                 onClick = { productMenuExpanded = true },
                 modifier = Modifier.fillMaxWidth().testTag("select-purchase-product")
             ) {
-                Text(products.firstOrNull { it.id == selectedProductId }?.name ?: "انتخاب کالای خریداری‌شده")
+                Text(products.firstOrNull { it.id == selectedProductId }?.let { "${it.name} • ${it.unitLabel}" } ?: "انتخاب کالای خریداری‌شده")
             }
             DropdownMenu(
                 expanded = productMenuExpanded,
@@ -83,17 +85,18 @@ fun PurchaseManagement(repository: BusinessRepository) {
             ) {
                 products.filter { it.isActive }.forEach { product ->
                     DropdownMenuItem(
-                        text = { Text("${product.name} • موجودی ${formatFinancialAmount(product.stockQuantity)}") },
+                        text = { Text("${product.name} • موجودی ${formatScaledQuantity(product.stockQuantity, product.quantityScale)} ${product.unitLabel}") },
                         onClick = { selectedProductId = product.id; unitCost = ""; productMenuExpanded = false }
                     )
                 }
             }
         }
+        val selectedProduct = products.firstOrNull { it.id == selectedProductId }
         OutlinedTextField(
             quantity,
-            { quantity = normalizePersianDigits(it).filter(Char::isDigit); message = null },
+            { quantity = it; message = null },
             Modifier.fillMaxWidth(),
-            label = { Text("تعداد خرید") },
+            label = { Text("مقدار خرید (${selectedProduct?.unitLabel ?: "واحد کالا"})") },
             singleLine = true
         )
         OutlinedTextField(
@@ -106,7 +109,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
         Button(
             onClick = {
                 val product = products.firstOrNull { it.id == selectedProductId }
-                val count = quantity.toLongOrNull()
+                val count = product?.let { parseScaledQuantity(quantity, it.quantityScale) }
                 val cost = unitCost.toLongOrNull()
                 if (product == null || count == null || count <= 0L || cost == null || cost < 0L) {
                     message = "کالا، تعداد و بهای خرید معتبر را وارد کنید."
@@ -116,12 +119,12 @@ fun PurchaseManagement(repository: BusinessRepository) {
                         val previous = cart[index]
                         cart[index] = previous.copy(quantity = Math.addExact(previous.quantity, count))
                     } else {
-                        cart.add(PurchaseDraftLine(product.id, product.name, count, cost))
+                        cart.add(PurchaseDraftLine(product.id, product.name, count, cost, product.quantityScale, product.unitLabel))
                     }
                     message = "قلم خرید به فهرست اضافه شد."
                 }
             },
-            enabled = selectedProductId != null && quantity.toLongOrNull()?.let { it > 0L } == true &&
+            enabled = selectedProduct != null && parseScaledQuantity(quantity, selectedProduct.quantityScale)?.let { it > 0L } == true &&
                 unitCost.toLongOrNull()?.let { it >= 0L } == true && !isSaving,
             modifier = Modifier.fillMaxWidth().testTag("add-purchase-line")
         ) { Text("افزودن قلم خرید") }
@@ -132,7 +135,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.weight(1f)) {
                         Text(line.productName, style = MaterialTheme.typography.titleSmall)
-                        Text("${formatFinancialAmount(line.quantity)} × ${formatToman(line.unitCostMinor)} = ${formatToman(line.totalMinor)}")
+                        Text("${formatScaledQuantity(line.quantity, line.quantityScale)} ${line.unitLabel} × ${formatToman(line.unitCostMinor)} = ${formatToman(line.totalMinor)}")
                     }
                     TextButton(onClick = { cart.removeAt(index) }, enabled = !isSaving) { Text("حذف") }
                 }
@@ -172,7 +175,8 @@ fun PurchaseManagement(repository: BusinessRepository) {
                                         productId = line.productId,
                                         quantity = line.quantity,
                                         unitCostMinor = line.unitCostMinor,
-                                        lineTotalMinor = line.totalMinor
+                                        lineTotalMinor = line.totalMinor,
+                                        quantityScale = line.quantityScale
                                     )
                                 },
                                 initialPaymentMinor = paid,
@@ -237,7 +241,8 @@ private fun PurchaseBalanceRow(purchase: PurchaseEntity, repository: BusinessRep
             )
             lines.forEach { line ->
                 val productName = products.firstOrNull { it.id == line.productId }?.name ?: "کالای #${line.productId}"
-                Text("${productName} • ${formatFinancialAmount(line.quantity)} × ${formatToman(line.unitCostMinor)}")
+                val unit = products.firstOrNull { it.id == line.productId }
+                Text("${productName} • ${formatScaledQuantity(line.quantity, line.quantityScale)} ${unit?.unitLabel ?: "واحد"} × ${formatToman(line.unitCostMinor)}")
             }
             payments.take(3).forEach { payment ->
                 Text("پرداخت ${formatToman(payment.amountMinor)} • ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.note}")
