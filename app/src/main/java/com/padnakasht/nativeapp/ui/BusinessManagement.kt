@@ -106,7 +106,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         PremiumBrandPanel(dateLabel = JalaliDate.format(LocalDate.now()))
         SectionHeading("مدیریت کسب‌وکار", "فروش، موجودی و حساب مشتریان در یک محیط آفلاین")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها").forEach { (tab, label) ->
+            listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها", "purchases" to "خریدها").forEach { (tab, label) ->
                 androidx.compose.material3.FilterChip(
                     selected = activeBusinessTab == tab,
                     onClick = { activeBusinessTab = tab },
@@ -277,6 +277,9 @@ fun BusinessManagement(repository: BusinessRepository) {
             }
         }
 
+        }
+        if (activeBusinessTab == "purchases") {
+            PurchaseManagement(repository)
         }
         if (activeBusinessTab == "invoices") {
         SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
