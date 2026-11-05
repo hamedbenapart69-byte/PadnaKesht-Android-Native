@@ -233,6 +233,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 customers.forEach { customer ->
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(customer.name) },
+                        modifier = Modifier.testTag("invoice-customer-${customer.id}"),
                         onClick = { selectedCustomer = customer.id; customerMenuExpanded = false }
                     )
                 }
