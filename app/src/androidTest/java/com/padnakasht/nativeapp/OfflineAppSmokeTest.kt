@@ -253,7 +253,7 @@ class OfflineAppSmokeTest {
         capture("reports-payables")
         // LazyColumn composes off-screen rows on demand; move to the export card first.
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(5)
-        awaitVisibleByScrolling("گزارش کامل فروش و جریان نقدی")
+        awaitVisibleByScrolling("گزارش کامل فروش، خرید و جریان نقدی")
 
         // Back from a non-overview section returns to the overview and keeps the app open.
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
