@@ -120,6 +120,9 @@ class PurchaseManagementTest {
             sql.execSQL("DROP TABLE purchase_payments")
             sql.execSQL("DROP TABLE purchase_lines")
             sql.execSQL("DROP TABLE purchases")
+            sql.execSQL("ALTER TABLE products DROP COLUMN unitLabel")
+            sql.execSQL("ALTER TABLE products DROP COLUMN quantityScale")
+            sql.execSQL("ALTER TABLE invoice_lines DROP COLUMN quantityScale")
             sql.version = 11
         } finally {
             original.close()
