@@ -11,7 +11,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.padnakasht.nativeapp.R
 import com.padnakasht.nativeapp.data.local.AppDatabaseFactory
 import com.padnakasht.nativeapp.domain.OverdueDebtReminderRules
 import java.text.NumberFormat
@@ -58,7 +57,7 @@ class OverdueDebtReminderWorker(
                     )
                 }
                 val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setSmallIcon(com.padnakasht.nativeapp.R.drawable.ic_notification)
                     .setContentTitle(DebtReminderNotificationText.title())
                     .setContentText(DebtReminderNotificationText.body(summary.customerCount, summary.totalOutstandingMinor))
                     .setStyle(NotificationCompat.BigTextStyle().bigText(
