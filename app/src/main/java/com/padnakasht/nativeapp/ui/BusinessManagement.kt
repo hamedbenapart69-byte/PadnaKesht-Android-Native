@@ -60,6 +60,12 @@ fun BusinessManagement(repository: BusinessRepository) {
     var adjustingCustomerId by remember { mutableStateOf<Long?>(null) }
     var customerBalanceDelta by remember { mutableStateOf("") }
     var customerBalanceReason by remember { mutableStateOf("") }
+    var editingProductId by remember { mutableStateOf<Long?>(null) }
+    var editingProductName by remember { mutableStateOf("") }
+    var editingProductSku by remember { mutableStateOf("") }
+    var editingProductCategory by remember { mutableStateOf("عمومی") }
+    var editingProductPrice by remember { mutableStateOf("") }
+    var editingProductLowStock by remember { mutableStateOf("0") }
     var activeBusinessTab by remember { mutableStateOf("customers") }
     var productName by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
@@ -185,8 +191,34 @@ fun BusinessManagement(repository: BusinessRepository) {
             modifier = Modifier.fillMaxWidth().testTag("register-product")
         ) { Text("ثبت محصول") }
         products.forEach { product ->
-            TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatToman(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
+            Column(Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { selectedProduct = product.id },
+                    enabled = product.isActive,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatToman(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}${if (product.isActive) "" else " • بایگانی"}")
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        editingProductId = product.id
+                        editingProductName = product.name
+                        editingProductSku = product.sku
+                        editingProductCategory = product.category
+                        editingProductPrice = product.unitPriceMinor.toString()
+                        editingProductLowStock = product.lowStockThreshold.toString()
+                    }, modifier = Modifier.weight(1f)) { Text("ویرایش") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            runCatching { repository.setProductActive(product.id, !product.isActive) }
+                                .onSuccess {
+                                    if (product.isActive && selectedProduct == product.id) selectedProduct = null
+                                    message = if (product.isActive) "کالا بایگانی شد؛ سوابق فاکتور و گردش انبار حفظ شدند." else "کالا دوباره فعال شد."
+                                }
+                                .onFailure { message = "تغییر وضعیت کالا انجام نشد: ${it.message ?: "خطای نامشخص"}" }
+                        }
+                    }, modifier = Modifier.weight(1f)) { Text(if (product.isActive) "بایگانی" else "فعال‌سازی") }
+                }
             }
         }
 
@@ -279,7 +311,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                 expanded = productMenuExpanded,
                 onDismissRequest = { productMenuExpanded = false }
             ) {
-                products.forEach { product ->
+                products.filter { it.isActive }.forEach { product ->
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(product.name + " • موجودی " + formatFinancialAmount(product.stockQuantity) + " • " + formatToman(product.unitPriceMinor)) },
                         onClick = { selectedProduct = product.id; productMenuExpanded = false }
@@ -449,6 +481,44 @@ fun BusinessManagement(repository: BusinessRepository) {
                 }) { Text("ذخیره") }
             },
             dismissButton = { TextButton(onClick = { editingCustomerId = null }) { Text("انصراف") } }
+        )
+    }
+
+    if (editingProductId != null) {
+        AlertDialog(
+            onDismissRequest = { editingProductId = null },
+            title = { Text("ویرایش کالا") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تغییر مشخصات کالا، قیمت اقلام فاکتورهای قبلی را دست‌کاری نمی‌کند و موجودی فعلی نیز جداگانه حفظ می‌شود.")
+                    OutlinedTextField(editingProductName, { editingProductName = it }, label = { Text("نام کالا") }, singleLine = true)
+                    OutlinedTextField(editingProductSku, { editingProductSku = it }, label = { Text("کد یکتا") }, singleLine = true)
+                    OutlinedTextField(editingProductCategory, { editingProductCategory = it }, label = { Text("دسته‌بندی") }, singleLine = true)
+                    OutlinedTextField(editingProductPrice, { editingProductPrice = normalizePersianDigits(it).filter(Char::isDigit) }, label = { Text("قیمت فعلی (تومان)") }, singleLine = true)
+                    OutlinedTextField(editingProductLowStock, { editingProductLowStock = normalizePersianDigits(it).filter(Char::isDigit) }, label = { Text("حد هشدار موجودی") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = editingProductName.isNotBlank() && editingProductSku.isNotBlank() &&
+                        editingProductPrice.toLongOrNull() != null && editingProductLowStock.toLongOrNull()?.let { it >= 0 } == true && !isSaving,
+                    onClick = {
+                        val id = editingProductId ?: return@TextButton
+                        val unitPrice = editingProductPrice.toLongOrNull() ?: return@TextButton
+                        val lowStock = editingProductLowStock.toLongOrNull() ?: return@TextButton
+                        isSaving = true
+                        scope.launch {
+                            runCatching {
+                                repository.updateProduct(id, editingProductName, editingProductSku, unitPrice, editingProductCategory, lowStock)
+                            }
+                                .onSuccess { message = "مشخصات کالا ذخیره شد؛ موجودی و سوابق فروش حفظ شدند."; editingProductId = null }
+                                .onFailure { message = "ویرایش کالا انجام نشد؛ کد تکراری یا اطلاعات نامعتبر را بررسی کنید." }
+                                .also { isSaving = false }
+                        }
+                    }
+                ) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editingProductId = null }) { Text("انصراف") } }
         )
     }
 
