@@ -158,6 +158,8 @@ class MainActivity : FragmentActivity() {
                 val allPayments by businessRepository.allPayments.collectAsState(initial = emptyList())
                 val allReturns by businessRepository.allSalesReturns.collectAsState(initial = emptyList())
                 val allRefunds by businessRepository.allRefunds.collectAsState(initial = emptyList())
+                val businessPurchases by businessRepository.purchases.collectAsState(initial = emptyList())
+                val allPurchasePayments by businessRepository.allPurchasePayments.collectAsState(initial = emptyList())
                 val businessSummary = remember(businessInvoices, allPayments, allReturns, allRefunds) {
                     BusinessAccounting.summarize(
                         businessInvoices.map { InvoiceAccountingEvent(it.id, it.createdAtEpochDay, it.totalMinor, it.status) },
@@ -168,7 +170,7 @@ class MainActivity : FragmentActivity() {
                 }
 
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
-                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, transactions) {
+                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, businessPurchases, allPurchasePayments, transactions) {
                     val customerNames = businessCustomers.associate { it.id to it.name }
                     val rows = mutableListOf<com.padnakasht.nativeapp.report.BusinessReportRow>()
                     businessInvoices.forEach { invoice ->
@@ -219,6 +221,28 @@ class MainActivity : FragmentActivity() {
                                 rows += row.copy(balanceMinor = runningBalance)
                             }
                     }
+                    businessPurchases.forEach { purchase ->
+                        rows += com.padnakasht.nativeapp.report.BusinessReportRow(
+                            purchase.occurredAtEpochDay,
+                            "خرید کالا",
+                            "خرید #${purchase.id}",
+                            purchase.supplierName,
+                            purchase.totalMinor,
+                            0L,
+                            purchase.notes
+                        )
+                        allPurchasePayments.filter { it.purchaseId == purchase.id }.forEach { payment ->
+                            rows += com.padnakasht.nativeapp.report.BusinessReportRow(
+                                payment.paidAtEpochDay,
+                                "پرداخت تأمین‌کننده",
+                                "پرداخت خرید #${payment.id}",
+                                purchase.supplierName,
+                                payment.amountMinor,
+                                0L,
+                                payment.note.ifBlank { payment.method }
+                            )
+                        }
+                    }
                     transactions.forEach { transaction ->
                         rows += com.padnakasht.nativeapp.report.BusinessReportRow(
                             transaction.occurredAtEpochDay,
@@ -244,10 +268,10 @@ class MainActivity : FragmentActivity() {
                             .thenBy { it.reference }
                     )
                 }
-                val businessReportData = remember(businessReportRows, businessSummary, summary, transactions) {
+                val businessReportData = remember(businessReportRows, businessSummary, summary, transactions, businessPurchases, allPurchasePayments) {
                     val today = LocalDate.now()
                     BusinessReportData(
-                        title = "گزارش کامل فروش و دریافت‌ها",
+                        title = "گزارش کامل فروش، خرید و دریافت‌ها",
                         startEpochDay = businessReportRows.minOfOrNull { it.dateEpochDay } ?: today.toEpochDay(),
                         endEpochDayInclusive = today.toEpochDay(),
                         invoiceSalesMinor = businessSummary.invoicedSalesMinor,
@@ -257,7 +281,14 @@ class MainActivity : FragmentActivity() {
                         outstandingMinor = businessSummary.outstandingBalanceMinor,
                         rows = businessReportRows,
                         generalIncomeMinor = summary.incomeMinor,
-                        generalExpenseMinor = summary.expenseMinor
+                        generalExpenseMinor = summary.expenseMinor,
+                        purchaseTotalMinor = businessPurchases.fold(0L) { total, purchase -> Math.addExact(total, purchase.totalMinor) },
+                        supplierPaymentsMinor = allPurchasePayments.fold(0L) { total, payment -> Math.addExact(total, payment.amountMinor) },
+                        supplierPayablesMinor = businessPurchases.fold(0L) { total, purchase ->
+                            val paid = allPurchasePayments.filter { it.purchaseId == purchase.id }
+                                .fold(0L) { paidTotal, payment -> Math.addExact(paidTotal, payment.amountMinor) }
+                            Math.addExact(total, maxOf(0L, purchase.totalMinor - paid))
+                        }
                     )
                 }
 
@@ -506,6 +537,10 @@ class MainActivity : FragmentActivity() {
                                         Text("بازپرداخت ثبت‌شده: " + formatToman(businessSummary.refundsMinor))
                                         Text("خالص دریافتی نقدی: " + formatToman(businessSummary.netCashReceiptsMinor), style = MaterialTheme.typography.titleMedium)
                                         Text("بدهی باقی‌مانده: " + formatToman(businessSummary.outstandingBalanceMinor), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                                        androidx.compose.material3.HorizontalDivider()
+                                        Text("خرید کالا: " + formatToman(businessReportData.purchaseTotalMinor))
+                                        Text("پرداخت به تأمین‌کنندگان: " + formatToman(businessReportData.supplierPaymentsMinor))
+                                        Text("بدهی تأمین‌کنندگان: " + formatToman(businessReportData.supplierPayablesMinor), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
                                         Text("فروش فاکتوری، دریافتی نقدی و بازپرداخت جدا محاسبه می‌شوند؛ ارقام از رویدادهای پایگاه داده می‌آیند.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
@@ -547,7 +582,7 @@ class MainActivity : FragmentActivity() {
                             item {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Text("گزارش کامل فروش و جریان نقدی", style = MaterialTheme.typography.titleMedium)
+                                        Text("گزارش کامل فروش، خرید و جریان نقدی", style = MaterialTheme.typography.titleMedium)
                                         Button(onClick = { pdfLauncher.launch("padnakasht-report.pdf") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش PDF") }
                                         Button(onClick = { xlsxLauncher.launch("padnakasht-report.xlsx") }, modifier = Modifier.fillMaxWidth()) { Text("ذخیره گزارش Excel") }
                                         androidx.compose.material3.OutlinedButton(
@@ -559,7 +594,7 @@ class MainActivity : FragmentActivity() {
                                             modifier = Modifier.fillMaxWidth()
                                         ) { Text("بازیابی پشتیبان") }
                                         if (backupMessage != null) Text(backupMessage!!, color = MaterialTheme.colorScheme.primary)
-                                        Text("خروجی شامل فاکتورها، پرداخت‌ها، مرجوعی‌ها، بازپرداخت‌ها، مانده‌ها و تاریخ شمسی است. دفتر درآمد/هزینهٔ عمومی همچنان در فهرست جداگانه نمایش داده می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("خروجی شامل فاکتورها، دریافت‌ها، مرجوعی‌ها، بازپرداخت‌ها، خریدها، پرداخت به تأمین‌کنندگان، مانده‌ها و تاریخ شمسی است. دفتر درآمد/هزینهٔ عمومی همچنان در فهرست جداگانه نمایش داده می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
