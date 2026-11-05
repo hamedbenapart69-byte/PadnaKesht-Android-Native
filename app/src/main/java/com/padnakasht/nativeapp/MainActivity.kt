@@ -196,7 +196,7 @@ class MainActivity : FragmentActivity() {
                             ledgerEvents += Triple(
                                 com.padnakasht.nativeapp.report.BusinessReportRow(refund.refundedAtEpochDay, "بازپرداخت", "بازپرداخت #${refund.id}", customer, refund.amountMinor, 0L, refund.reason),
                                 3,
-                                0L
+                                if (posted) refund.amountMinor else 0L
                             )
                         }
                         var runningBalance = 0L
