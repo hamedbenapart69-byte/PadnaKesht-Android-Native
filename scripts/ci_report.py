@@ -25,10 +25,10 @@ def notice(title: str, message: str) -> None:
     print(f"::notice title={esc(title)}::{esc(message[:MAX])}")
 
 
-def report_xml() -> bool:
+def report_xml() -> tuple[bool, int, int]:
     files = glob.glob("app/build/outputs/androidTest-results/**/*.xml", recursive=True)
     if not files:
-        return False
+        return False, 0, 0
     total = failed = 0
     for path in files:
         try:
@@ -45,7 +45,7 @@ def report_xml() -> bool:
                 body = (bad.get("message") or "") + "\n" + (bad.text or "")
                 error(f"FAILED {case.get('classname')}.{case.get('name')}", body.strip())
     notice("Instrumented test totals", f"tests={total} failed={failed} xml_files={len(files)}")
-    return True
+    return True, total, failed
 
 
 def report_gradle_log(path: str = "gradle-connected.log") -> None:
@@ -89,9 +89,11 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--gradle-log":
         report_gradle_log(sys.argv[2])
         sys.exit(0)
-    found = report_xml()
+    found, total, failed = report_xml()
     if not found:
-        notice("androidTest XML", "no result files were produced")
+        error("androidTest XML", "No instrumented test result XML files were produced")
+    elif total == 0:
+        error("androidTest XML", "Result XML files contained zero test cases")
     report_gradle_log()
     report_logcat()
-    sys.exit(0)
+    sys.exit(0 if found and total > 0 and failed == 0 else 1)
