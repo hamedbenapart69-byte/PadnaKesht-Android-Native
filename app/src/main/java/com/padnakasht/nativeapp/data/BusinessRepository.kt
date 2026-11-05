@@ -101,7 +101,7 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun createSingleProductInvoice(customerId: Long, productId: Long, quantity: Long): Long {
         require(customerId > 0) { "Customer is required" }
-        val customer = dao.getCustomer(customerId) ?: error("Customer not found")
+        val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
         require(customer.isActive) { "Cannot invoice an archived customer" }
         require(quantity > 0) { "Quantity must be positive" }
         val product = dao.getProduct(productId) ?: error("Product not found")
