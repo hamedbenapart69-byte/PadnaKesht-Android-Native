@@ -245,7 +245,7 @@ class OfflineAppSmokeTest {
         awaitDisplayed("دریافتی ثبت‌شده: ۱۰۰٬۰۰۰ تومان")
         awaitDisplayed("بازپرداخت ثبت‌شده: ۲۰٬۰۰۰ تومان")
         awaitDisplayed("خالص دریافتی نقدی: ۸۰٬۰۰۰ تومان")
-        awaitDisplayed("بدهی مشتریان: ۲۰٬۰۰۰ تومان")
+        awaitDisplayed("بدهی باقی‌مانده: ۲۰٬۰۰۰ تومان")
         awaitDisplayed("بدهی تأمین‌کنندگان: ۳۰٬۰۰۰ تومان")
         capture("reports")
         // LazyColumn composes off-screen rows on demand; move to the export card first.
