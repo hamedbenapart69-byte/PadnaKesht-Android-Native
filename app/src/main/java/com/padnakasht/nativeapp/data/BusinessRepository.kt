@@ -77,6 +77,36 @@ class BusinessRepository(private val dao: BusinessDao) {
         ))
     }
 
+    suspend fun updateProduct(
+        productId: Long,
+        name: String,
+        sku: String,
+        unitPriceMinor: Long,
+        category: String = "عمومی",
+        lowStockThreshold: Long = 0L
+    ): Boolean {
+        require(productId > 0L) { "Product ID is required" }
+        require(name.isNotBlank()) { "Product name is required" }
+        require(sku.isNotBlank()) { "SKU is required" }
+        require(unitPriceMinor >= 0L) { "Price cannot be negative" }
+        require(lowStockThreshold >= 0L) { "Low-stock threshold cannot be negative" }
+        require(dao.getProduct(productId) != null) { "Product not found" }
+        return dao.updateProductDetails(
+            productId,
+            name.trim(),
+            sku.trim(),
+            unitPriceMinor,
+            category.trim().ifBlank { "عمومی" },
+            lowStockThreshold
+        ) == 1
+    }
+
+    suspend fun setProductActive(productId: Long, isActive: Boolean): Boolean {
+        require(productId > 0L) { "Product ID is required" }
+        require(dao.getProduct(productId) != null) { "Product not found" }
+        return dao.setProductActive(productId, isActive) == 1
+    }
+
     suspend fun createInvoice(
         customerId: Long,
         lines: List<InvoiceLineEntity>,
@@ -88,6 +118,10 @@ class BusinessRepository(private val dao: BusinessDao) {
         require(discountMinor >= 0L) { "Discount cannot be negative" }
         val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
         require(customer.isActive) { "Cannot invoice an archived customer" }
+        lines.forEach { line ->
+            val product = requireNotNull(dao.getProduct(line.productId)) { "Product not found" }
+            require(product.isActive) { "Cannot sell an archived product" }
+        }
         return dao.postInvoice(
             InvoiceEntity(
                 customerId = customerId,
@@ -104,7 +138,8 @@ class BusinessRepository(private val dao: BusinessDao) {
         val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
         require(customer.isActive) { "Cannot invoice an archived customer" }
         require(quantity > 0) { "Quantity must be positive" }
-        val product = dao.getProduct(productId) ?: error("Product not found")
+        val product = requireNotNull(dao.getProduct(productId)) { "Product not found" }
+        require(product.isActive) { "Cannot sell an archived product" }
         val lineTotal = Math.multiplyExact(product.unitPriceMinor, quantity)
         return dao.postInvoice(
             InvoiceEntity(customerId = customerId, createdAtEpochDay = LocalDate.now().toEpochDay()),
