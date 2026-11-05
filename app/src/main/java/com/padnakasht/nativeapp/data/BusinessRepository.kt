@@ -2,6 +2,7 @@ package com.padnakasht.nativeapp.data
 
 import com.padnakasht.nativeapp.data.local.BusinessDao
 import com.padnakasht.nativeapp.data.local.CustomerEntity
+import com.padnakasht.nativeapp.data.local.CustomerBalanceAdjustmentEntity
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
@@ -23,6 +24,34 @@ class BusinessRepository(private val dao: BusinessDao) {
     suspend fun addCustomer(name: String, phone: String = "", notes: String = ""): Long {
         require(name.isNotBlank()) { "Customer name is required" }
         return dao.insertCustomer(CustomerEntity(name = name.trim(), phone = phone.trim(), notes = notes.trim()))
+    }
+
+    suspend fun updateCustomer(customerId: Long, name: String, phone: String = "", notes: String = ""): Boolean {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(name.isNotBlank()) { "Customer name is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.updateCustomerDetails(customerId, name.trim(), phone.trim(), notes.trim()) == 1
+    }
+
+    suspend fun setCustomerActive(customerId: Long, isActive: Boolean): Boolean {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.setCustomerActive(customerId, isActive) == 1
+    }
+
+    suspend fun adjustCustomerBalance(customerId: Long, amountDeltaMinor: Long, reason: String): Long {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(amountDeltaMinor != 0L) { "Customer balance adjustment cannot be zero" }
+        require(reason.isNotBlank()) { "Customer balance adjustment reason is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.insertCustomerBalanceAdjustment(
+            CustomerBalanceAdjustmentEntity(
+                customerId = customerId,
+                amountDeltaMinor = amountDeltaMinor,
+                occurredAtEpochDay = LocalDate.now().toEpochDay(),
+                reason = reason.trim()
+            )
+        )
     }
 
     suspend fun addProduct(
