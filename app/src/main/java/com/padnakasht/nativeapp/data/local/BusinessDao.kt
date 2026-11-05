@@ -122,6 +122,42 @@ abstract class BusinessDao {
     @Query("SELECT * FROM stock_movements ORDER BY occurredAtEpochDay DESC, id DESC LIMIT 20")
     abstract fun observeStockMovements(): Flow<List<StockMovementEntity>>
 
+    @Query("SELECT * FROM purchases ORDER BY occurredAtEpochDay DESC, id DESC")
+    abstract fun observePurchases(): Flow<List<PurchaseEntity>>
+
+    @Query("SELECT * FROM purchase_lines WHERE purchaseId = :purchaseId ORDER BY id")
+    abstract fun observePurchaseLines(purchaseId: Long): Flow<List<PurchaseLineEntity>>
+
+    @Query("SELECT * FROM purchase_payments WHERE purchaseId = :purchaseId ORDER BY paidAtEpochDay DESC, id DESC")
+    abstract fun observePurchasePayments(purchaseId: Long): Flow<List<PurchasePaymentEntity>>
+
+    @Query("SELECT * FROM purchase_payments ORDER BY paidAtEpochDay DESC, id DESC")
+    abstract fun observeAllPurchasePayments(): Flow<List<PurchasePaymentEntity>>
+
+    @Insert
+    abstract suspend fun insertPurchase(purchase: PurchaseEntity): Long
+
+    @Insert
+    abstract suspend fun insertPurchaseLine(line: PurchaseLineEntity): Long
+
+    @Insert
+    abstract suspend fun insertPurchasePayment(payment: PurchasePaymentEntity): Long
+
+    @Query("SELECT * FROM purchases WHERE id = :purchaseId LIMIT 1")
+    abstract suspend fun getPurchase(purchaseId: Long): PurchaseEntity?
+
+    @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM purchase_payments WHERE purchaseId = :purchaseId")
+    abstract suspend fun getPurchasePaymentsTotal(purchaseId: Long): Long
+
+    @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM purchase_payments WHERE purchaseId = :purchaseId")
+    abstract fun observePurchasePaymentsTotal(purchaseId: Long): Flow<Long>
+
+    @Query("SELECT * FROM purchase_payments WHERE idempotencyKey = :key LIMIT 1")
+    abstract suspend fun getPurchasePaymentByIdempotencyKey(key: String): PurchasePaymentEntity?
+
+    @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :productId AND isActive = 1")
+    abstract suspend fun increaseStockForPurchase(productId: Long, quantity: Long): Int
+
     @Query("SELECT * FROM stock_movements ORDER BY occurredAtEpochDay DESC, id DESC")
     abstract suspend fun getStockMovements(): List<StockMovementEntity>
 
@@ -143,6 +179,80 @@ abstract class BusinessDao {
             occurredAtEpochDay = occurredAtEpochDay
         ))
         return true
+    }
+
+
+    @Transaction
+    open suspend fun postPurchase(
+        purchase: PurchaseEntity,
+        lines: List<PurchaseLineEntity>,
+        initialPaymentMinor: Long = 0L
+    ): Long {
+        require(purchase.supplierName.isNotBlank()) { "Supplier name is required" }
+        require(lines.isNotEmpty()) { "A purchase must contain at least one line" }
+        require(initialPaymentMinor >= 0L) { "Initial payment cannot be negative" }
+        var total = 0L
+        lines.forEach { line ->
+            require(line.quantity > 0L) { "Purchase quantity must be positive" }
+            require(line.unitCostMinor >= 0L) { "Unit cost cannot be negative" }
+            val lineTotal = Math.multiplyExact(line.quantity, line.unitCostMinor)
+            require(line.lineTotalMinor == lineTotal) { "Purchase line total does not match quantity × unit cost" }
+            total = Math.addExact(total, lineTotal)
+        }
+        require(initialPaymentMinor <= total) { "Initial payment cannot exceed purchase total" }
+        val purchaseId = insertPurchase(purchase.copy(totalMinor = total, supplierName = purchase.supplierName.trim()))
+        lines.forEach { line ->
+            val product = getProduct(line.productId) ?: error("Product not found")
+            require(product.isActive) { "Cannot purchase into an archived product" }
+            check(increaseStockForPurchase(line.productId, line.quantity) == 1) {
+                "Could not increase stock for purchase; purchase posting rolled back"
+            }
+            insertPurchaseLine(line.copy(id = 0L, purchaseId = purchaseId))
+            insertStockMovement(
+                StockMovementEntity(
+                    productId = line.productId,
+                    quantityDelta = line.quantity,
+                    reason = "خرید #${purchaseId} از ${purchase.supplierName.trim()}",
+                    occurredAtEpochDay = purchase.occurredAtEpochDay
+                )
+            )
+        }
+        if (initialPaymentMinor > 0L) {
+            insertPurchasePayment(
+                PurchasePaymentEntity(
+                    purchaseId = purchaseId,
+                    amountMinor = initialPaymentMinor,
+                    paidAtEpochDay = purchase.occurredAtEpochDay,
+                    note = "پرداخت اولیه خرید",
+                    idempotencyKey = "purchase-initial-${purchaseId}"
+                )
+            )
+        }
+        return purchaseId
+    }
+
+    @Transaction
+    open suspend fun recordPurchasePayment(payment: PurchasePaymentEntity): Long {
+        require(payment.amountMinor > 0L) { "Purchase payment must be positive" }
+        val key = payment.idempotencyKey.trim()
+        require(key.isNotEmpty()) { "Purchase payment idempotency key is required" }
+        val previous = getPurchasePaymentByIdempotencyKey(key)
+        if (previous != null) {
+            require(
+                previous.purchaseId == payment.purchaseId &&
+                    previous.amountMinor == payment.amountMinor &&
+                    previous.method == payment.method &&
+                    previous.note == payment.note
+            ) { "Idempotency key was already used for a different purchase payment" }
+            return previous.id
+        }
+        val purchase = getPurchase(payment.purchaseId) ?: error("Purchase not found")
+        require(purchase.status == "POSTED") { "Cannot pay a cancelled purchase" }
+        val paid = getPurchasePaymentsTotal(payment.purchaseId)
+        require(Math.addExact(paid, payment.amountMinor) <= purchase.totalMinor) {
+            "Payment exceeds the outstanding supplier balance"
+        }
+        return insertPurchasePayment(payment.copy(idempotencyKey = key, note = payment.note.trim()))
     }
 
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payments WHERE invoiceId = :invoiceId")
