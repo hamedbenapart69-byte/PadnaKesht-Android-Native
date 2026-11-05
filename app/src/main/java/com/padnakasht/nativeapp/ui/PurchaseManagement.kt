@@ -103,7 +103,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
             unitCost,
             { unitCost = normalizePersianDigits(it).filter(Char::isDigit); message = null },
             Modifier.fillMaxWidth(),
-            label = { Text("بهای خرید هر واحد (تومان)") },
+            label = { Text("بهای خرید هر ${selectedProduct?.unitLabel ?: "واحد"} (تومان)") },
             singleLine = true
         )
         Button(
