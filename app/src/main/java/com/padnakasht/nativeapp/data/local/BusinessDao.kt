@@ -279,14 +279,18 @@ abstract class BusinessDao {
         // Preserve each original receipt and record its refund in the same transaction.
         val payments = getPaymentsForInvoice(invoiceId)
         payments.forEach { payment ->
-            insertPaymentRefund(PaymentRefundEntity(
-                invoiceId = invoiceId,
-                paymentId = payment.id,
-                amountMinor = payment.amountMinor,
-                refundedAtEpochDay = occurredAtEpochDay,
-                reason = "بازپرداخت بابت لغو فاکتور #$invoiceId",
-                idempotencyKey = "cancel-invoice-" + invoiceId + "-payment-" + payment.id
-            ))
+            val alreadyRefunded = getRefundsTotalForPayment(payment.id)
+            val remainingRefund = Math.subtractExact(payment.amountMinor, alreadyRefunded)
+            if (remainingRefund > 0L) {
+                insertPaymentRefund(PaymentRefundEntity(
+                    invoiceId = invoiceId,
+                    paymentId = payment.id,
+                    amountMinor = remainingRefund,
+                    refundedAtEpochDay = occurredAtEpochDay,
+                    reason = "بازپرداخت بابت لغو فاکتور #$invoiceId",
+                    idempotencyKey = "cancel-invoice-" + invoiceId + "-payment-" + payment.id
+                ))
+            }
         }
 
         // Returned quantities are already back in stock; restore only the remainder.
