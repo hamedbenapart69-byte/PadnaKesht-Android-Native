@@ -86,14 +86,20 @@ class CustomerBalanceAdjustmentTest {
         }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun zeroCustomerBalanceAdjustmentIsRejected() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "customer-zero-adjustment-test.db")
         try {
             val dao = db.businessDao()
             val customerId = dao.insertCustomer(CustomerEntity(name = "مشتری صفر"))
-            BusinessRepository(dao).adjustCustomerBalance(customerId, 0L, "مقدار نامعتبر")
+            var rejected = false
+            try {
+                BusinessRepository(dao).adjustCustomerBalance(customerId, 0L, "مقدار نامعتبر")
+            } catch (_: IllegalArgumentException) {
+                rejected = true
+            }
+            assertTrue("A zero balance adjustment must be rejected", rejected)
         } finally {
             db.close()
             context.getDatabasePath("customer-zero-adjustment-test.db").delete()
