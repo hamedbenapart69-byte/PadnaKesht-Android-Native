@@ -9,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -498,7 +500,7 @@ class MainActivity : FragmentActivity() {
                                         }
                                         OutlinedTextField(
                                             value = amount, onValueChange = { amount = normalizePersianDigits(it).filter(Char::isDigit); error = null },
-                                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (تومان)") }, singleLine = true
+                                            modifier = Modifier.fillMaxWidth(), label = { Text("مبلغ (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true
                                         )
                                         OutlinedTextField(
                                             value = category, onValueChange = { category = it; error = null },
