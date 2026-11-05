@@ -24,7 +24,7 @@ class CustomerBalanceAdjustmentTest {
         System.loadLibrary("sqlcipher")
         context.getDatabasePath(name).delete()
         return Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
     }
@@ -103,13 +103,14 @@ class CustomerBalanceAdjustmentTest {
             val sql = original.openHelper.writableDatabase
             sql.execSQL("DROP TABLE customer_balance_adjustments")
             sql.execSQL("ALTER TABLE customers DROP COLUMN isActive")
+            sql.execSQL("ALTER TABLE products DROP COLUMN isActive")
             sql.version = 9
         } finally {
             original.close()
         }
 
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
             .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
             .build()
         try {
