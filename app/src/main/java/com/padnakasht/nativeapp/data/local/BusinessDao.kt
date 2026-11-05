@@ -346,9 +346,12 @@ abstract class BusinessDao {
         }
         val invoice = getInvoice(payment.invoiceId) ?: error("Invoice not found")
         require(invoice.status == "POSTED") { "Cannot pay a cancelled invoice" }
-        val paid = getPaymentsTotal(payment.invoiceId)
+        // Refunds reopen the receivable: only net cash retained counts as paid.
+        val netPaid = Math.subtractExact(getPaymentsTotal(payment.invoiceId), getRefundsTotal(payment.invoiceId))
         val credits = getReturnsTotal(payment.invoiceId)
-        require(Math.addExact(paid, payment.amountMinor) <= Math.subtractExact(invoice.totalMinor, credits)) { "Payment exceeds invoice balance after returns" }
+        require(Math.addExact(netPaid, payment.amountMinor) <= Math.subtractExact(invoice.totalMinor, credits)) {
+            "Payment exceeds invoice balance after returns and refunds"
+        }
         return insertPayment(payment)
     }
 
