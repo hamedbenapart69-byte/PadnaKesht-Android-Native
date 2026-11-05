@@ -41,12 +41,14 @@ class PinAuthStore(context: Context) {
             normalizedPin.fill('\u0000')
             normalizedConfirmation.fill('\u0000')
         }
-        return prefs.edit()
+        val saved = prefs.edit()
             .putString(SALT_KEY, Base64.encodeToString(salt, Base64.NO_WRAP))
             .putString(HASH_KEY, Base64.encodeToString(hash, Base64.NO_WRAP))
             .remove(FAILURE_COUNT_KEY)
             .remove(LOCKED_UNTIL_KEY)
             .commit()
+        hash.fill(0)
+        return saved
     }
 
     @Synchronized
@@ -69,13 +71,22 @@ class PinAuthStore(context: Context) {
             normalizedPin.fill('\u0000')
             return false
         }
-        val expected = Base64.decode(encodedHash, Base64.NO_WRAP)
-        val actual = try {
-            derive(normalizedPin, Base64.decode(encodedSalt, Base64.NO_WRAP))
+        val matched = try {
+            val expected = Base64.decode(encodedHash, Base64.NO_WRAP)
+            val salt = Base64.decode(encodedSalt, Base64.NO_WRAP)
+            val actual = derive(normalizedPin, salt)
+            try {
+                MessageDigest.isEqual(expected, actual)
+            } finally {
+                expected.fill(0)
+                salt.fill(0)
+                actual.fill(0)
+            }
+        } catch (_: IllegalArgumentException) {
+            false
         } finally {
             normalizedPin.fill('\u0000')
         }
-        val matched = MessageDigest.isEqual(expected, actual)
         if (matched) {
             prefs.edit().remove(FAILURE_COUNT_KEY).remove(LOCKED_UNTIL_KEY).commit()
         } else {
@@ -85,7 +96,7 @@ class PinAuthStore(context: Context) {
     }
 
     private fun recordFailure(now: Long) {
-        val failures = prefs.getInt(FAILURE_COUNT_KEY, 0) + 1
+        val failures = (prefs.getInt(FAILURE_COUNT_KEY, 0).coerceAtLeast(0) + 1).coerceAtMost(10)
         val lockoutMillis = if (failures < 5) 0L else
             (30_000L * (1L shl (failures - 5).coerceAtMost(5))).coerceAtMost(15 * 60_000L)
         prefs.edit()
