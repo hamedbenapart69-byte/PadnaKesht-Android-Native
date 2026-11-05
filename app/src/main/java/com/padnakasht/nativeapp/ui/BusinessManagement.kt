@@ -566,9 +566,17 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
     val refunds by repository.observeRefunds(invoice.id).collectAsState(initial = emptyList())
     val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
-    val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
+    val refunded = refunds.fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+    val returnedCredit = returns.fold(0L) { total, returned -> Math.addExact(total, returned.creditAmountMinor) }
+    val balance = Math.subtractExact(Math.addExact(invoice.totalMinor - paid, refunded), returnedCredit)
     var showCancelConfirmation by remember { mutableStateOf(false) }
     var cancellationMessage by remember { mutableStateOf<String?>(null) }
+    var refundPaymentId by remember { mutableStateOf<Long?>(null) }
+    var refundAmount by remember { mutableStateOf("") }
+    var refundReason by remember { mutableStateOf("") }
+    var refundOperationKey by remember { mutableStateOf<String?>(null) }
+    var refundMessage by remember { mutableStateOf<String?>(null) }
+    var isRefunding by remember { mutableStateOf(false) }
     val cancelScope = rememberCoroutineScope()
     GlassPanel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
@@ -593,7 +601,25 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
-                    Text("دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                    val refundedForPayment = refunds.filter { it.paymentId == payment.id }
+                        .fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+                    val refundable = payment.amountMinor - refundedForPayment
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("رسید #${formatFinancialAmount(payment.id)} • دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                        if (invoice.status == "POSTED" && refundable > 0L) {
+                            TextButton(
+                                onClick = {
+                                    refundPaymentId = payment.id
+                                    refundAmount = ""
+                                    refundReason = ""
+                                    refundOperationKey = null
+                                    refundMessage = null
+                                },
+                                enabled = !isRefunding,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("بازپرداخت از این رسید • مانده قابل بازپرداخت ${formatToman(refundable)}") }
+                        }
+                    }
                 }
             }
             if (refunds.isNotEmpty()) {
@@ -609,6 +635,62 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             }
             cancellationMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
+    }
+    if (refundPaymentId != null) {
+        val payment = payments.firstOrNull { it.id == refundPaymentId }
+        val alreadyRefunded = refunds.filter { it.paymentId == refundPaymentId }
+            .fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+        val refundable = (payment?.amountMinor ?: 0L) - alreadyRefunded
+        AlertDialog(
+            onDismissRequest = { if (!isRefunding) refundPaymentId = null },
+            title = { Text("ثبت بازپرداخت") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("این بازپرداخت به رسید انتخاب‌شده متصل می‌شود و از مانده بدهی مشتری کم نمی‌کند؛ در واقع وجه پرداخت‌شده به مشتری برمی‌گردد.")
+                    Text("حداکثر قابل بازپرداخت: ${formatToman(refundable)}")
+                    OutlinedTextField(
+                        refundAmount,
+                        { value -> refundAmount = normalizePersianDigits(value).filter(Char::isDigit); refundOperationKey = null; refundMessage = null },
+                        label = { Text("مبلغ بازپرداخت (تومان)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        refundReason,
+                        { value -> refundReason = value; refundOperationKey = null; refundMessage = null },
+                        label = { Text("علت بازپرداخت") }
+                    )
+                    refundMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isRefunding && payment != null && refundAmount.toLongOrNull()?.let { it > 0L && it <= refundable } == true && refundReason.isNotBlank(),
+                    onClick = {
+                        val selectedPayment = payment ?: return@TextButton
+                        val amount = refundAmount.toLongOrNull() ?: return@TextButton
+                        if (refundOperationKey == null) refundOperationKey = java.util.UUID.randomUUID().toString()
+                        isRefunding = true
+                        cancelScope.launch {
+                            runCatching {
+                                repository.refundPayment(invoice.id, selectedPayment.id, amount, refundReason, requireNotNull(refundOperationKey))
+                            }.onSuccess {
+                                refundPaymentId = null
+                                refundAmount = ""
+                                refundReason = ""
+                                refundOperationKey = null
+                                refundMessage = null
+                                cancellationMessage = "بازپرداخت ثبت شد و مانده حساب به‌روزرسانی شد."
+                            }.onFailure { error ->
+                                refundMessage = error.message ?: "ثبت بازپرداخت ناموفق بود."
+                            }.also { isRefunding = false }
+                        }
+                    }
+                ) { Text(if (isRefunding) "در حال ثبت…" else "ثبت بازپرداخت") }
+            },
+            dismissButton = {
+                TextButton(enabled = !isRefunding, onClick = { refundPaymentId = null }) { Text("انصراف") }
+            }
+        )
     }
     if (showCancelConfirmation) {
         AlertDialog(
