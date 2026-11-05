@@ -70,6 +70,14 @@ class CustomerBalanceAdjustmentTest {
             assertTrue(repository.setCustomerActive(customerId, false))
             assertFalse(dao.getCustomer(customerId)?.isActive ?: true)
             assertEquals(1, dao.invoiceCount())
+            var archivedCustomerRejected = false
+            try {
+                repository.createSingleProductInvoice(customerId, productId, 1)
+            } catch (_: IllegalArgumentException) {
+                archivedCustomerRejected = true
+            }
+            assertTrue("Archived customers must not receive new invoices", archivedCustomerRejected)
+            assertEquals(1, dao.invoiceCount())
             assertTrue(repository.setCustomerActive(customerId, true))
             assertTrue(dao.getCustomer(customerId)?.isActive ?: false)
         } finally {
