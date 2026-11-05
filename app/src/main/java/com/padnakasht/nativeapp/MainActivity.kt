@@ -162,7 +162,9 @@ class MainActivity : FragmentActivity() {
                 val allRefunds by businessRepository.allRefunds.collectAsState(initial = emptyList())
                 val businessPurchases by businessRepository.purchases.collectAsState(initial = emptyList())
                 val allPurchasePayments by businessRepository.allPurchasePayments.collectAsState(initial = emptyList())
-                val businessSummary = remember(businessInvoices, allPayments, allReturns, allRefunds) {
+                val allCustomerBalanceAdjustments by businessRepository.allCustomerBalanceAdjustments.collectAsState(initial = emptyList())
+                val totalCustomerReceivables by businessRepository.totalCustomerReceivables.collectAsState(initial = 0L)
+                val calculatedBusinessSummary = remember(businessInvoices, allPayments, allReturns, allRefunds) {
                     BusinessAccounting.summarize(
                         businessInvoices.map { InvoiceAccountingEvent(it.id, it.createdAtEpochDay, it.totalMinor, it.status) },
                         allPayments.map { PaymentAccountingEvent(it.invoiceId, it.paidAtEpochDay, it.amountMinor) },
@@ -170,9 +172,12 @@ class MainActivity : FragmentActivity() {
                         allRefunds.map { RefundAccountingEvent(it.invoiceId, it.refundedAtEpochDay, it.amountMinor) }
                     )
                 }
+                val businessSummary = remember(calculatedBusinessSummary, totalCustomerReceivables) {
+                    calculatedBusinessSummary.copy(outstandingBalanceMinor = totalCustomerReceivables)
+                }
 
                 val summary = remember(transactions) { LedgerRules.summarize(transactions) }
-                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, businessPurchases, allPurchasePayments, transactions) {
+                val businessReportRows = remember(businessInvoices, businessCustomers, allPayments, allReturns, allRefunds, allCustomerBalanceAdjustments, businessPurchases, allPurchasePayments, transactions) {
                     val customerNames = businessCustomers.associate { it.id to it.name }
                     val rows = mutableListOf<com.padnakasht.nativeapp.report.BusinessReportRow>()
                     businessInvoices.forEach { invoice ->
@@ -222,6 +227,18 @@ class MainActivity : FragmentActivity() {
                                 runningBalance = Math.addExact(runningBalance, balanceDelta)
                                 rows += row.copy(balanceMinor = runningBalance)
                             }
+                    }
+                    allCustomerBalanceAdjustments.forEach { adjustment ->
+                        val customer = customerNames[adjustment.customerId] ?: "مشتری #${adjustment.customerId}"
+                        rows += com.padnakasht.nativeapp.report.BusinessReportRow(
+                            adjustment.occurredAtEpochDay,
+                            "اصلاح مانده مشتری",
+                            "اصلاح حساب #${adjustment.id}",
+                            customer,
+                            adjustment.amountDeltaMinor,
+                            0L,
+                            adjustment.reason
+                        )
                     }
                     businessPurchases.forEach { purchase ->
                         rows += com.padnakasht.nativeapp.report.BusinessReportRow(
