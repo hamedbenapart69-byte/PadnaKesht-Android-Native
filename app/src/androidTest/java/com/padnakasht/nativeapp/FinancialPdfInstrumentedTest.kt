@@ -122,4 +122,60 @@ class FinancialPdfInstrumentedTest {
             file.delete()
         }
     }
+    @Test
+    fun longBusinessPdfPaginatesWrappedRowsAcrossAllPages() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val file = File(context.cacheDir, "business-financial-pdf-pagination-test.pdf")
+        file.delete()
+        val day = LocalDate.of(2026, 10, 21).toEpochDay()
+        val rows = (1..90).map { index ->
+            BusinessReportRow(
+                day,
+                "اصلاح مانده مشتری",
+                "مرجع #$index",
+                "مشتری آزمایشی",
+                1_000L,
+                500L,
+                "شرح طولانی رویداد حسابداری برای بررسی صفحه‌بندی و جلوگیری از حذف متن در خروجی PDF ".repeat(30)
+            )
+        }
+        val report = BusinessReportData(
+            title = "گزارش جامع آزمون صفحه‌بندی",
+            startEpochDay = day,
+            endEpochDayInclusive = day,
+            invoiceSalesMinor = 90_000L,
+            receiptsMinor = 45_000L,
+            returnCreditsMinor = 0L,
+            refundsMinor = 0L,
+            outstandingMinor = 45_000L,
+            rows = rows
+        )
+        try {
+            FinancialReportExporter.writeBusinessPdf(context.contentResolver, Uri.fromFile(file), report)
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+                PdfRenderer(descriptor).use { renderer ->
+                    assertTrue("Long report must continue onto additional pages", renderer.pageCount > 4)
+                    for (index in 0 until renderer.pageCount) {
+                        renderer.openPage(index).use { page ->
+                            val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+                            try {
+                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                var visible = 0
+                                for (y in 0 until bitmap.height step 12) for (x in 0 until bitmap.width step 12) {
+                                    if (bitmap.getPixel(x, y) != Color.WHITE) visible++
+                                }
+                                assertTrue("PDF page $index must render visible content", visible > 5)
+                            } finally {
+                                bitmap.recycle()
+                            }
+                        }
+                    }
+                }
+            }
+        } finally {
+            file.delete()
+        }
+    }
+
+
 }
