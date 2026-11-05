@@ -11,8 +11,33 @@ data class CustomerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val phone: String = "",
-    val notes: String = ""
+    val notes: String = "",
+    @ColumnInfo(defaultValue = "1") val isActive: Boolean = true
 )
+
+@Entity(
+    tableName = "customer_balance_adjustments",
+    foreignKeys = [ForeignKey(
+        entity = CustomerEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["customerId"],
+        onDelete = ForeignKey.RESTRICT
+    )],
+    indices = [Index(value = ["customerId"]), Index(value = ["occurredAtEpochDay"])]
+)
+data class CustomerBalanceAdjustmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val amountDeltaMinor: Long,
+    val occurredAtEpochDay: Long,
+    val reason: String
+) {
+    init {
+        require(customerId > 0L)
+        require(amountDeltaMinor != 0L)
+        require(reason.isNotBlank())
+    }
+}
 
 @Entity(tableName = "products", indices = [Index(value = ["sku"], unique = true)])
 data class ProductEntity(
