@@ -180,7 +180,7 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithTag("select-invoice-product").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-product").performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
-        composeRule.onNodeWithText("مقدار (کیلوگرم)").performTextInput("0.5")
+        composeRule.onNodeWithText("مقدار (کیلوگرم)").performTextReplacement("0.5")
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performScrollTo()
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performClick()
         awaitVisibleByScrolling("قلم به سبد فاکتور اضافه شد.")
