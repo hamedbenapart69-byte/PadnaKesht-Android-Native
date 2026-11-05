@@ -58,8 +58,14 @@ abstract class BusinessDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insertProduct(product: ProductEntity): Long
 
-    @Query("UPDATE products SET stockQuantity = stockQuantity - :quantity WHERE id = :productId AND stockQuantity >= :quantity")
+    @Query("UPDATE products SET stockQuantity = stockQuantity - :quantity WHERE id = :productId AND stockQuantity >= :quantity AND isActive = 1")
     abstract suspend fun decreaseStockIfAvailable(productId: Long, quantity: Long): Int
+
+    @Query("UPDATE products SET name = :name, sku = :sku, unitPriceMinor = :unitPriceMinor, category = :category, lowStockThreshold = :lowStockThreshold WHERE id = :productId")
+    abstract suspend fun updateProductDetails(productId: Long, name: String, sku: String, unitPriceMinor: Long, category: String, lowStockThreshold: Long): Int
+
+    @Query("UPDATE products SET isActive = :isActive WHERE id = :productId")
+    abstract suspend fun setProductActive(productId: Long, isActive: Boolean): Int
 
     @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :productId")
     abstract suspend fun increaseStock(productId: Long, quantity: Long): Int
