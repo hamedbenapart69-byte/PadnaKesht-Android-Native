@@ -23,7 +23,33 @@ abstract class BusinessDao {
     @Query("SELECT * FROM customers WHERE id = :customerId LIMIT 1")
     abstract suspend fun getCustomer(customerId: Long): CustomerEntity?
 
-    @Query("SELECT COALESCE(SUM(CASE WHEN invoices.status = 'POSTED' THEN invoices.totalMinor - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id) - (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0) FROM sales_returns WHERE sales_returns.invoiceId = invoices.id) ELSE 0 END), 0) FROM invoices WHERE invoices.customerId = :customerId")
+    @Query("UPDATE customers SET name = :name, phone = :phone, notes = :notes WHERE id = :customerId")
+    abstract suspend fun updateCustomerDetails(customerId: Long, name: String, phone: String, notes: String): Int
+
+    @Query("UPDATE customers SET isActive = :isActive WHERE id = :customerId")
+    abstract suspend fun setCustomerActive(customerId: Long, isActive: Boolean): Int
+
+    @Insert
+    abstract suspend fun insertCustomerBalanceAdjustment(adjustment: CustomerBalanceAdjustmentEntity): Long
+
+    @Query("""
+        SELECT
+            COALESCE((
+                SELECT SUM(
+                    CASE WHEN invoices.status = 'POSTED' THEN
+                        invoices.totalMinor
+                        - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id)
+                        - (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0) FROM sales_returns WHERE sales_returns.invoiceId = invoices.id)
+                    ELSE 0 END
+                )
+                FROM invoices WHERE invoices.customerId = :customerId
+            ), 0)
+            + COALESCE((
+                SELECT SUM(amountDeltaMinor)
+                FROM customer_balance_adjustments
+                WHERE customerId = :customerId
+            ), 0)
+    """)
     abstract fun observeCustomerBalance(customerId: Long): Flow<Long>
 
     @Query("SELECT * FROM products ORDER BY name COLLATE NOCASE")
