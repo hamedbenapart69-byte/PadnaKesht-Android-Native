@@ -781,13 +781,11 @@ private fun ReturnLinePicker(
     } else {
         lines.forEach { line ->
             val productName = products.firstOrNull { it.id == line.productId }?.name ?: "کالای #${line.productId}"
-            TextButton(onClick = { onSelect(line.id) }, modifier = Modifier.fillMaxWidth()) {
-                val product = products.firstOrNull { it.id == line.productId }
-                val scale = product?.quantityScale ?: 1L
-                val unit = product?.unitLabel ?: "عدد"
-                TextButton(onClick = { onSelect(line.id, scale, unit) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${formatScaledQuantity(line.quantity, scale)} $unit • شناسه قلم: ${formatFinancialAmount(line.id)}")
-                }
+            val product = products.firstOrNull { it.id == line.productId }
+            val scale = product?.quantityScale ?: 1L
+            val unit = product?.unitLabel ?: "عدد"
+            TextButton(onClick = { onSelect(line.id, scale, unit) }, modifier = Modifier.fillMaxWidth()) {
+                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${formatScaledQuantity(line.quantity, scale)} $unit • شناسه قلم: ${formatFinancialAmount(line.id)}")
             }
         }
     }
