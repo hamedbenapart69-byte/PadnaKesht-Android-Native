@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.padnakasht.nativeapp.data.BusinessRepository
@@ -97,6 +99,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
             { quantity = it; message = null },
             Modifier.fillMaxWidth(),
             label = { Text("مقدار خرید (${selectedProduct?.unitLabel ?: "واحد کالا"})") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             singleLine = true
         )
         OutlinedTextField(
@@ -104,6 +107,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
             { unitCost = normalizePersianDigits(it).filter(Char::isDigit); message = null },
             Modifier.fillMaxWidth(),
             label = { Text("بهای خرید هر ${selectedProduct?.unitLabel ?: "واحد"} (تومان)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
         Button(
@@ -149,6 +153,7 @@ fun PurchaseManagement(repository: BusinessRepository) {
             { initialPayment = normalizePersianDigits(it).filter(Char::isDigit); message = null },
             Modifier.fillMaxWidth(),
             label = { Text("پرداخت اولیه به تأمین‌کننده (تومان)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
         OutlinedTextField(
@@ -275,6 +280,7 @@ private fun PurchaseBalanceRow(purchase: PurchaseEntity, repository: BusinessRep
                         paymentAmount,
                         { value -> paymentAmount = normalizePersianDigits(value).filter(Char::isDigit); operationKey = null; message = null },
                         label = { Text("مبلغ پرداخت (تومان)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true
                     )
                     OutlinedTextField(
