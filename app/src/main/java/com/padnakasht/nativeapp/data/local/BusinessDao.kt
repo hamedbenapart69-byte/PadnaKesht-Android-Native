@@ -40,6 +40,7 @@ abstract class BusinessDao {
                         invoices.totalMinor
                         - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id)
                         - (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0) FROM sales_returns WHERE sales_returns.invoiceId = invoices.id)
+                        + (SELECT COALESCE(SUM(payment_refunds.amountMinor), 0) FROM payment_refunds WHERE payment_refunds.invoiceId = invoices.id)
                     ELSE 0 END
                 )
                 FROM invoices WHERE invoices.customerId = :customerId
@@ -174,6 +175,15 @@ abstract class BusinessDao {
     @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payment_refunds WHERE invoiceId = :invoiceId")
     abstract suspend fun getRefundsTotal(invoiceId: Long): Long
 
+    @Query("SELECT COALESCE(SUM(amountMinor), 0) FROM payment_refunds WHERE paymentId = :paymentId")
+    abstract suspend fun getRefundsTotalForPayment(paymentId: Long): Long
+
+    @Query("SELECT * FROM payment_refunds WHERE idempotencyKey = :key LIMIT 1")
+    abstract suspend fun getRefundByIdempotencyKey(key: String): PaymentRefundEntity?
+
+    @Query("SELECT * FROM payments WHERE id = :paymentId LIMIT 1")
+    abstract suspend fun getPayment(paymentId: Long): PaymentEntity?
+
     @Query("SELECT * FROM payments WHERE idempotencyKey = :key LIMIT 1")
     abstract suspend fun getPaymentByIdempotencyKey(key: String): PaymentEntity?
 
@@ -230,6 +240,32 @@ abstract class BusinessDao {
         val credits = getReturnsTotal(payment.invoiceId)
         require(Math.addExact(paid, payment.amountMinor) <= Math.subtractExact(invoice.totalMinor, credits)) { "Payment exceeds invoice balance after returns" }
         return insertPayment(payment)
+    }
+
+    @Transaction
+    open suspend fun recordRefund(refund: PaymentRefundEntity): Long {
+        require(refund.amountMinor > 0L) { "Refund amount must be positive" }
+        val key = refund.idempotencyKey.trim()
+        require(key.isNotEmpty()) { "Refund idempotency key is required" }
+        val previous = getRefundByIdempotencyKey(key)
+        if (previous != null) {
+            require(
+                previous.invoiceId == refund.invoiceId &&
+                    previous.paymentId == refund.paymentId &&
+                    previous.amountMinor == refund.amountMinor &&
+                    previous.reason == refund.reason.trim()
+            ) { "Idempotency key was already used for a different refund" }
+            return previous.id
+        }
+        val invoice = getInvoice(refund.invoiceId) ?: error("Invoice not found")
+        require(invoice.status == "POSTED") { "Cannot refund a cancelled invoice" }
+        val payment = getPayment(refund.paymentId) ?: error("Payment not found")
+        require(payment.invoiceId == refund.invoiceId) { "Payment does not belong to the selected invoice" }
+        val refundedBefore = getRefundsTotalForPayment(payment.id)
+        require(Math.addExact(refundedBefore, refund.amountMinor) <= payment.amountMinor) {
+            "Refund exceeds the unrefunded part of this receipt"
+        }
+        return insertPaymentRefund(refund.copy(reason = refund.reason.trim(), idempotencyKey = key))
     }
 
     @Transaction
