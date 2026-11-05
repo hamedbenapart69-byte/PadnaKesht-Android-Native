@@ -444,7 +444,7 @@ class MainActivity : FragmentActivity() {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize()) {
                     LazyColumn(
-                        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).padding(bottom = 92.dp).testTag("main-content-list"),
+                        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).padding(bottom = 144.dp).testTag("main-content-list"),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
