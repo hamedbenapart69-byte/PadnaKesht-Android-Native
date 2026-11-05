@@ -86,7 +86,8 @@ class BusinessRepository(private val dao: BusinessDao) {
         require(customerId > 0) { "Customer is required" }
         require(lines.isNotEmpty()) { "An invoice must contain at least one line" }
         require(discountMinor >= 0L) { "Discount cannot be negative" }
-        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        val customer = dao.getCustomer(customerId) ?: error("Customer not found")
+        require(customer.isActive) { "Cannot invoice an archived customer" }
         return dao.postInvoice(
             InvoiceEntity(
                 customerId = customerId,
@@ -100,7 +101,8 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun createSingleProductInvoice(customerId: Long, productId: Long, quantity: Long): Long {
         require(customerId > 0) { "Customer is required" }
-        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        val customer = dao.getCustomer(customerId) ?: error("Customer not found")
+        require(customer.isActive) { "Cannot invoice an archived customer" }
         require(quantity > 0) { "Quantity must be positive" }
         val product = dao.getProduct(productId) ?: error("Product not found")
         val lineTotal = Math.multiplyExact(product.unitPriceMinor, quantity)
