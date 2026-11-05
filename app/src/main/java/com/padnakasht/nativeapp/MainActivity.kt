@@ -655,6 +655,11 @@ class MainActivity : FragmentActivity() {
                                             onClick = { externalActivityPending = true; restoreLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3", "*/*")) },
                                             modifier = Modifier.fillMaxWidth()
                                         ) { Text("بازیابی پشتیبان") }
+                                        Text(
+                                            "هشدار: این پشتیبان به کلید امن همین نصب وابسته است؛ پس از حذف برنامه یا انتقال به گوشی دیگر قابل بازیابی نیست.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
                                         if (backupMessage != null) Text(backupMessage!!, color = MaterialTheme.colorScheme.primary)
                                         Text("خروجی شامل فاکتورها، دریافت‌ها، مرجوعی‌ها، بازپرداخت‌ها، خریدها، پرداخت به تأمین‌کنندگان، مانده‌ها و تاریخ شمسی است. دفتر درآمد/هزینهٔ عمومی همچنان در فهرست جداگانه نمایش داده می‌شود.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (reportMessage != null) Text(reportMessage!!, color = MaterialTheme.colorScheme.primary)
