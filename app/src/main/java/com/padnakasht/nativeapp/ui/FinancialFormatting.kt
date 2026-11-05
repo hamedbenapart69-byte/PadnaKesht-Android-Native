@@ -29,7 +29,7 @@ fun parseScaledQuantity(value: String, scale: Long): Long? = runCatching {
         .replace(",", "")
         .replace("٬", "")
         .trim()
-    require(normalized.matches(Regex("""-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)""")))
+    require(normalized.matches(Regex("""-?(?:\d+(?:\.\d*)?|\.\d+)""")))
     java.math.BigDecimal(normalized)
         .multiply(java.math.BigDecimal.valueOf(scale))
         .setScale(0, java.math.RoundingMode.UNNECESSARY)
