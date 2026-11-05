@@ -166,6 +166,28 @@ class BusinessRepository(private val dao: BusinessDao) {
             )
         )
 
+    suspend fun refundPayment(
+        invoiceId: Long,
+        paymentId: Long,
+        amountMinor: Long,
+        reason: String,
+        idempotencyKey: String = java.util.UUID.randomUUID().toString()
+    ): Long {
+        require(invoiceId > 0L && paymentId > 0L) { "Invoice and payment IDs are required" }
+        require(amountMinor > 0L) { "Refund amount must be positive" }
+        require(reason.isNotBlank()) { "Refund reason is required" }
+        return dao.recordRefund(
+            PaymentRefundEntity(
+                invoiceId = invoiceId,
+                paymentId = paymentId,
+                amountMinor = amountMinor,
+                refundedAtEpochDay = LocalDate.now().toEpochDay(),
+                reason = reason.trim(),
+                idempotencyKey = idempotencyKey
+            )
+        )
+    }
+
     suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId, LocalDate.now().toEpochDay())
 
     fun observeInvoiceLines(invoiceId: Long) = dao.observeInvoiceLines(invoiceId)
@@ -190,7 +212,10 @@ class BusinessRepository(private val dao: BusinessDao) {
         val invoice = dao.getInvoice(invoiceId) ?: error("Invoice not found")
         if (invoice.status != "POSTED") return 0L
         return Math.subtractExact(
-            Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)),
+            Math.addExact(
+                Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)),
+                dao.getRefundsTotal(invoiceId)
+            ),
             dao.getReturnsTotal(invoiceId)
         )
     }
