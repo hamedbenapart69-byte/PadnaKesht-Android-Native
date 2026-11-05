@@ -87,6 +87,44 @@ class CustomerBalanceAdjustmentTest {
     }
 
     @Test
+    fun migrationFromVersionNinePreservesExistingCustomerAndInvoiceData() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "customer-ledger-migration-test.db"
+        val original = database(context, name)
+        val customerId: Long
+        try {
+            val dao = original.businessDao()
+            customerId = dao.insertCustomer(CustomerEntity(name = "مشتری قدیمی"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای قدیمی", sku = "CUSTOMER-MIGRATION-TEST", stockQuantity = 2, unitPriceMinor = 700)
+            )
+            BusinessRepository(dao).createSingleProductInvoice(customerId, productId, 1)
+
+            val sql = original.openHelper.writableDatabase
+            sql.execSQL("DROP TABLE customer_balance_adjustments")
+            sql.execSQL("ALTER TABLE customers DROP COLUMN isActive")
+            sql.version = 9
+        } finally {
+            original.close()
+        }
+
+        val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
+            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .openHelperFactory(SupportOpenHelperFactory(DatabasePassphraseProvider.getOrCreate(context), null, true))
+            .build()
+        try {
+            val dao = migrated.businessDao()
+            assertEquals("مشتری قدیمی", dao.getCustomer(customerId)?.name)
+            assertTrue(dao.getCustomer(customerId)?.isActive ?: false)
+            assertEquals(1, dao.invoiceCount())
+            assertEquals(700L, dao.observeCustomerBalance(customerId).first())
+        } finally {
+            migrated.close()
+            context.getDatabasePath(name).delete()
+        }
+    }
+
+    @Test
     fun zeroCustomerBalanceAdjustmentIsRejected() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "customer-zero-adjustment-test.db")
