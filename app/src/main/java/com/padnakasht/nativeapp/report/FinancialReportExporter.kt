@@ -169,6 +169,10 @@ object FinancialReportExporter {
         page?.let(document::finishPage)
     }
 
+    private fun persianDigits(value: Long): String = value.toString().map { ch ->
+        if (ch in '0'..'9') "۰۱۲۳۴۵۶۷۸۹"[ch - '0'] else ch
+    }.joinToString("")
+
     fun writeXlsx(output: OutputStream, transactions: List<FinancialTransaction>) {
         val summary = LedgerRules.summarize(transactions)
         ZipOutputStream(output).use { zip ->
