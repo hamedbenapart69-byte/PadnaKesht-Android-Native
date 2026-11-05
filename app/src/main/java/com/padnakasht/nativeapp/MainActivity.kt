@@ -219,7 +219,7 @@ class MainActivity : FragmentActivity() {
                         var runningBalance = 0L
                         ledgerEvents.sortedWith(compareBy<Triple<com.padnakasht.nativeapp.report.BusinessReportRow, Int, Long>> { it.first.dateEpochDay }.thenBy { it.second }.thenBy { it.first.reference })
                             .forEach { (row, _, balanceDelta) ->
-                                runningBalance = maxOf(0L, Math.addExact(runningBalance, balanceDelta))
+                                runningBalance = Math.addExact(runningBalance, balanceDelta)
                                 rows += row.copy(balanceMinor = runningBalance)
                             }
                     }
