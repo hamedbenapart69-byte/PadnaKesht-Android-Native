@@ -43,7 +43,7 @@ object OverdueDebtReminderRules {
             }
             val afterReturns = Math.subtractExact(invoice.invoiceTotalMinor, invoice.returnCreditsMinor)
             val afterReceipts = Math.subtractExact(afterReturns, invoice.receiptsMinor)
-            val outstanding = Math.subtractExact(afterReceipts, -invoice.refundsMinor).coerceAtLeast(0L)
+            val outstanding = Math.addExact(afterReceipts, invoice.refundsMinor).coerceAtLeast(0L)
             outstanding.takeIf { it > 0L }?.let { invoice.customerId to it }
         }
         var total = 0L
