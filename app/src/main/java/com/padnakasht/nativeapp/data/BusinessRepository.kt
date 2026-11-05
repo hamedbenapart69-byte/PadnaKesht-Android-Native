@@ -116,20 +116,26 @@ class BusinessRepository(private val dao: BusinessDao) {
         stockQuantity: Long,
         unitPriceMinor: Long,
         category: String = "عمومی",
-        lowStockThreshold: Long = 0L
+        lowStockThreshold: Long = 0L,
+        unitLabel: String = "عدد",
+        quantityScale: Long = 1L
     ): Long {
         require(name.isNotBlank()) { "Product name is required" }
         require(sku.isNotBlank()) { "SKU is required" }
         require(stockQuantity >= 0) { "Stock cannot be negative" }
         require(unitPriceMinor >= 0) { "Price cannot be negative" }
         require(lowStockThreshold >= 0) { "Low-stock threshold cannot be negative" }
+        require(unitLabel.isNotBlank()) { "Product unit is required" }
+        require(quantityScale > 0L) { "Product quantity scale must be positive" }
         return dao.insertProduct(ProductEntity(
             name = name.trim(),
             sku = sku.trim(),
             stockQuantity = stockQuantity,
             unitPriceMinor = unitPriceMinor,
             category = category.trim().ifBlank { "عمومی" },
-            lowStockThreshold = lowStockThreshold
+            lowStockThreshold = lowStockThreshold,
+            unitLabel = unitLabel.trim(),
+            quantityScale = quantityScale
         ))
     }
 
@@ -196,7 +202,7 @@ class BusinessRepository(private val dao: BusinessDao) {
         require(quantity > 0) { "Quantity must be positive" }
         val product = requireNotNull(dao.getProduct(productId)) { "Product not found" }
         require(product.isActive) { "Cannot sell an archived product" }
-        val lineTotal = Math.multiplyExact(product.unitPriceMinor, quantity)
+        val lineTotal = com.padnakasht.nativeapp.domain.calculateScaledAmount(quantity, product.unitPriceMinor, product.quantityScale)
         return dao.postInvoice(
             InvoiceEntity(customerId = customerId, createdAtEpochDay = LocalDate.now().toEpochDay()),
             listOf(
@@ -205,7 +211,8 @@ class BusinessRepository(private val dao: BusinessDao) {
                     productId = productId,
                     quantity = quantity,
                     unitPriceMinor = product.unitPriceMinor,
-                    lineTotalMinor = lineTotal
+                    lineTotalMinor = lineTotal,
+                    quantityScale = product.quantityScale
                 )
             )
         )
