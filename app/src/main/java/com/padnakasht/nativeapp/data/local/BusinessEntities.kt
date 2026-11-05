@@ -11,8 +11,33 @@ data class CustomerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val phone: String = "",
-    val notes: String = ""
+    val notes: String = "",
+    @ColumnInfo(defaultValue = "1") val isActive: Boolean = true
 )
+
+@Entity(
+    tableName = "customer_balance_adjustments",
+    foreignKeys = [ForeignKey(
+        entity = CustomerEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["customerId"],
+        onDelete = ForeignKey.RESTRICT
+    )],
+    indices = [Index(value = ["customerId"]), Index(value = ["occurredAtEpochDay"])]
+)
+data class CustomerBalanceAdjustmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val amountDeltaMinor: Long,
+    val occurredAtEpochDay: Long,
+    val reason: String
+) {
+    init {
+        require(customerId > 0L)
+        require(amountDeltaMinor != 0L)
+        require(reason.isNotBlank())
+    }
+}
 
 @Entity(tableName = "products", indices = [Index(value = ["sku"], unique = true)])
 data class ProductEntity(
@@ -22,13 +47,18 @@ data class ProductEntity(
     val stockQuantity: Long,
     val unitPriceMinor: Long,
     @ColumnInfo(defaultValue = "'عمومی'") val category: String = "عمومی",
-    @ColumnInfo(defaultValue = "0") val lowStockThreshold: Long = 0
+    @ColumnInfo(defaultValue = "0") val lowStockThreshold: Long = 0,
+    @ColumnInfo(defaultValue = "1") val isActive: Boolean = true,
+    @ColumnInfo(defaultValue = "'عدد'") val unitLabel: String = "عدد",
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
 ) {
     init {
         require(name.isNotBlank())
         require(stockQuantity >= 0)
         require(unitPriceMinor >= 0)
         require(lowStockThreshold >= 0)
+        require(unitLabel.isNotBlank())
+        require(quantityScale > 0L)
     }
 }
 
@@ -92,12 +122,14 @@ data class InvoiceLineEntity(
     val productId: Long,
     val quantity: Long,
     val unitPriceMinor: Long,
-    val lineTotalMinor: Long
+    val lineTotalMinor: Long,
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
 ) {
     init {
         require(quantity > 0)
         require(unitPriceMinor >= 0)
         require(lineTotalMinor >= 0)
+        require(quantityScale > 0L)
     }
 }
 
@@ -144,6 +176,70 @@ data class PaymentRefundEntity(
     init {
         require(amountMinor > 0)
         require(reason.isNotBlank())
+        require(idempotencyKey.isNotBlank())
+    }
+}
+
+
+@Entity(
+    tableName = "purchases",
+    indices = [Index(value = ["occurredAtEpochDay"]), Index(value = ["supplierName"])]
+)
+data class PurchaseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val supplierName: String,
+    val occurredAtEpochDay: Long,
+    val totalMinor: Long = 0,
+    val status: String = "POSTED",
+    val notes: String = ""
+) {
+    init {
+        require(supplierName.isNotBlank())
+        require(totalMinor >= 0L)
+    }
+}
+
+@Entity(
+    tableName = "purchase_lines",
+    foreignKeys = [
+        ForeignKey(entity = PurchaseEntity::class, parentColumns = ["id"], childColumns = ["purchaseId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = ProductEntity::class, parentColumns = ["id"], childColumns = ["productId"], onDelete = ForeignKey.RESTRICT)
+    ],
+    indices = [Index(value = ["purchaseId"]), Index(value = ["productId"])]
+)
+data class PurchaseLineEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val purchaseId: Long,
+    val productId: Long,
+    val quantity: Long,
+    val unitCostMinor: Long,
+    val lineTotalMinor: Long,
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
+) {
+    init {
+        require(quantity > 0L)
+        require(unitCostMinor >= 0L)
+        require(lineTotalMinor >= 0L)
+        require(quantityScale > 0L)
+    }
+}
+
+@Entity(
+    tableName = "purchase_payments",
+    foreignKeys = [ForeignKey(entity = PurchaseEntity::class, parentColumns = ["id"], childColumns = ["purchaseId"], onDelete = ForeignKey.RESTRICT)],
+    indices = [Index(value = ["purchaseId"]), Index(value = ["idempotencyKey"], unique = true)]
+)
+data class PurchasePaymentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val purchaseId: Long,
+    val amountMinor: Long,
+    val paidAtEpochDay: Long,
+    val method: String = "CASH",
+    val note: String = "",
+    val idempotencyKey: String
+) {
+    init {
+        require(amountMinor > 0L)
         require(idempotencyKey.isNotBlank())
     }
 }

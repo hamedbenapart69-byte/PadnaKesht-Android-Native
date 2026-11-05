@@ -19,7 +19,22 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 data class BusinessReportRow(val dateEpochDay: Long, val type: String, val reference: String, val customer: String, val amountMinor: Long, val balanceMinor: Long = 0L, val details: String = "")
-data class BusinessReportData(val title: String, val startEpochDay: Long, val endEpochDayInclusive: Long, val invoiceSalesMinor: Long, val receiptsMinor: Long, val returnCreditsMinor: Long, val refundsMinor: Long, val outstandingMinor: Long, val rows: List<BusinessReportRow>, val generalIncomeMinor: Long = 0L, val generalExpenseMinor: Long = 0L)
+data class BusinessReportData(
+    val title: String,
+    val startEpochDay: Long,
+    val endEpochDayInclusive: Long,
+    val invoiceSalesMinor: Long,
+    val receiptsMinor: Long,
+    val returnCreditsMinor: Long,
+    val refundsMinor: Long,
+    val outstandingMinor: Long,
+    val rows: List<BusinessReportRow>,
+    val generalIncomeMinor: Long = 0L,
+    val generalExpenseMinor: Long = 0L,
+    val purchaseTotalMinor: Long = 0L,
+    val supplierPaymentsMinor: Long = 0L,
+    val supplierPayablesMinor: Long = 0L
+)
 
 object FinancialReportExporter {
     fun writePdf(resolver: ContentResolver, uri: Uri, transactions: List<FinancialTransaction>) {
@@ -28,35 +43,22 @@ object FinancialReportExporter {
             val document = PdfDocument()
             try {
                 val summary = LedgerRules.summarize(transactions)
-                val rowsPerPage = 28
-                val pages = maxOf(1, (transactions.size + rowsPerPage - 1) / rowsPerPage)
-                val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 12f }
-                for (pageIndex in 0 until pages) {
-                    val info = PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create()
-                    val page = document.startPage(info)
-                    val canvas = page.canvas
-                    var y = 36f
-                    y += drawRtlText(canvas, "گزارش مالی پادناکِشت", y, paint, 515, 18f)
-                    y += drawRtlText(
-                        canvas,
-                        "درآمد: ${persianDigits(summary.incomeMinor)} | هزینه: ${persianDigits(summary.expenseMinor)} | خالص: ${persianDigits(summary.netMinor)}",
-                        y, paint, 515, 12f
+                val lines = buildList {
+                    add("گزارش مالی پادناکِشت" to 18f)
+                    add(
+                        "درآمد: ${persianDigits(summary.incomeMinor)} | هزینه: ${persianDigits(summary.expenseMinor)} | خالص: ${persianDigits(summary.netMinor)}" to 12f
                     )
-                    y += drawRtlText(canvas, "تمام مبالغ به تومان هستند.", y, paint, 515, 10f)
-                    y += 8f
-                    y += drawRtlText(canvas, "تاریخ | نوع | دسته‌بندی | مبلغ | توضیحات", y, paint, 515, 12f)
-                    y += 6f
-                    val startIndex = pageIndex * rowsPerPage
-                    val endIndex = minOf(transactions.size, startIndex + rowsPerPage)
-                    for (i in startIndex until endIndex) {
-                        val item = transactions[i]
+                    add("تمام مبالغ به تومان هستند." to 10f)
+                    add("تاریخ | نوع | دسته‌بندی | مبلغ | توضیحات" to 12f)
+                    transactions.forEach { item ->
                         val kind = if (item.kind == TransactionKind.INCOME) "درآمد" else "هزینه"
                         val date = JalaliDate.format(LocalDate.ofEpochDay(item.occurredAtEpochDay))
-                        val line = "$date | $kind | ${item.category.take(16)} | ${persianDigits(item.amountMinor)} | ${item.note.take(16)}"
-                        y += drawRtlText(canvas, line, y, paint, 515, 10f)
+                        add(
+                            "$date | $kind | ${item.category} | ${persianDigits(item.amountMinor)} | ${item.note}" to 10f
+                        )
                     }
-                    document.finishPage(page)
                 }
+                writeRtlPdfPages(document, lines, TextPaint(Paint.ANTI_ALIAS_FLAG))
                 document.writeTo(stream)
             } finally {
                 document.close()
@@ -76,7 +78,9 @@ object FinancialReportExporter {
             rows += listOf("خلاصه", "اعتبار مرجوعی", "", report.returnCreditsMinor.toString(), "بازپرداخت", report.refundsMinor.toString(), "")
             rows += listOf("خلاصه", "بدهی باقی‌مانده", "", report.outstandingMinor.toString(), "", "", "")
             rows += listOf("دفتر عمومی", "درآمد عمومی", "", report.generalIncomeMinor.toString(), "هزینه عمومی", report.generalExpenseMinor.toString(), "")
-            rows += listOf("تاریخ شمسی", "نوع رویداد", "مرجع", "مشتری", "مبلغ (تومان)", "مانده بدهی", "شرح")
+            rows += listOf("خرید کالا", "جمع خرید", "", report.purchaseTotalMinor.toString(), "پرداخت تأمین‌کننده", report.supplierPaymentsMinor.toString(), "")
+            rows += listOf("بدهی تأمین‌کنندگان", "", "", report.supplierPayablesMinor.toString(), "", "", "")
+            rows += listOf("تاریخ شمسی", "نوع رویداد", "مرجع", "مشتری/تأمین‌کننده", "مبلغ (تومان)", "مانده", "شرح")
             report.rows.forEach { row -> rows += listOf(JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay)), row.type, row.reference, row.customer, row.amountMinor.toString(), row.balanceMinor.toString(), row.details) }
             val sheet = buildString {
                 append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>""")
@@ -84,7 +88,7 @@ object FinancialReportExporter {
                     append("<row r=\"${ri + 1}\">")
                     cells.forEachIndexed { ci, value ->
                         val ref = "${columnName(ci + 1)}${ri + 1}"
-                        if ((ri in 1..4 && (ci == 3 || ci == 5)) || (ri >= 6 && (ci == 4 || ci == 5))) append("<c r=\"$ref\"><v>${value.toLongOrNull() ?: 0L}</v></c>")
+                        if ((ri in 1..6 && (ci == 3 || ci == 5)) || (ri >= 8 && (ci == 4 || ci == 5))) append("<c r=\"$ref\"><v>${value.toLongOrNull() ?: 0L}</v></c>")
                         else append("<c r=\"$ref\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${xmlEscape(value)}</t></is></c>")
                     }
                     append("</row>")
@@ -100,39 +104,69 @@ object FinancialReportExporter {
         output.use { stream ->
             val document = PdfDocument()
             try {
-                val lines = listOf("گزارش مالی فروش پادناکِشت", "درآمد عمومی: ${persianDigits(report.generalIncomeMinor)} | هزینه عمومی: ${persianDigits(report.generalExpenseMinor)}", "بازه: ${JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay))} تا ${JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive))}", "فروش فاکتوری: ${persianDigits(report.invoiceSalesMinor)}", "دریافتی: ${persianDigits(report.receiptsMinor)} | اعتبار مرجوعی: ${persianDigits(report.returnCreditsMinor)}", "بازپرداخت: ${persianDigits(report.refundsMinor)} | بدهی باقی‌مانده: ${persianDigits(report.outstandingMinor)}", "تاریخ شمسی | رویداد | مرجع | مشتری | مبلغ | مانده | شرح") + report.rows.map { row -> "${JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay))} | ${row.type} | ${row.reference} | ${row.customer} | ${persianDigits(row.amountMinor)} | ${persianDigits(row.balanceMinor)} | ${row.details}" }
-                val perPage = 30
-                val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10f }
-                for (pageIndex in 0 until maxOf(1, (lines.size + perPage - 1) / perPage)) {
-                    val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, pageIndex + 1).create())
-                    var y = 32f
-                    lines.drop(pageIndex * perPage).take(perPage).forEach { line -> y += drawRtlText(page.canvas, line, y, paint, 515, 9f) }
-                    document.finishPage(page)
+                val netCashReceipts = Math.subtractExact(report.receiptsMinor, report.refundsMinor)
+                val lines = buildList {
+                    add(report.title.ifBlank { "گزارش مالی فروش پادناکِشت" } to 18f)
+                    add("درآمد عمومی: ${persianDigits(report.generalIncomeMinor)} | هزینه عمومی: ${persianDigits(report.generalExpenseMinor)}" to 10f)
+                    add("بازه: ${JalaliDate.format(LocalDate.ofEpochDay(report.startEpochDay))} تا ${JalaliDate.format(LocalDate.ofEpochDay(report.endEpochDayInclusive))}" to 10f)
+                    add("فروش فاکتوری: ${persianDigits(report.invoiceSalesMinor)}" to 10f)
+                    add("دریافتی: ${persianDigits(report.receiptsMinor)} | اعتبار مرجوعی: ${persianDigits(report.returnCreditsMinor)}" to 10f)
+                    add("بازپرداخت: ${persianDigits(report.refundsMinor)} | خالص دریافتی نقدی: ${persianDigits(netCashReceipts)}" to 10f)
+                    add("بدهی مشتریان: ${persianDigits(report.outstandingMinor)}" to 10f)
+                    add("خرید کالا: ${persianDigits(report.purchaseTotalMinor)} | پرداخت به تأمین‌کنندگان: ${persianDigits(report.supplierPaymentsMinor)}" to 10f)
+                    add("بدهی تأمین‌کنندگان: ${persianDigits(report.supplierPayablesMinor)}" to 10f)
+                    add("تاریخ شمسی | نوع رویداد | مرجع | مشتری/تأمین‌کننده | مبلغ | مانده | شرح" to 9f)
+                    report.rows.forEach { row ->
+                        add(
+                            "${JalaliDate.format(LocalDate.ofEpochDay(row.dateEpochDay))} | ${row.type} | ${row.reference} | ${row.customer} | ${persianDigits(row.amountMinor)} | ${persianDigits(row.balanceMinor)} | ${row.details}" to 9f
+                        )
+                    }
                 }
+                writeRtlPdfPages(document, lines, TextPaint(Paint.ANTI_ALIAS_FLAG))
                 document.writeTo(stream)
-            } finally { document.close() }
+            } finally {
+                document.close()
+            }
         }
     }
 
-    private fun drawRtlText(
-        canvas: Canvas,
-        text: String,
-        top: Float,
+    private fun writeRtlPdfPages(
+        document: PdfDocument,
+        lines: List<Pair<String, Float>>,
         basePaint: TextPaint,
-        width: Int,
-        textSize: Float
-    ): Float {
-        val paint = TextPaint(basePaint).apply { this.textSize = textSize }
-        val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setTextDirection(TextDirectionHeuristics.RTL)
-            .setIncludePad(false)
-            .build()
-        canvas.save()
-        canvas.translate(40f, top)
-        layout.draw(canvas)
-        canvas.restore()
-        return layout.height.toFloat() + 4f
+        width: Int = 515
+    ) {
+        var pageNumber = 0
+        var page: PdfDocument.Page? = null
+        var y = 36f
+
+        fun startPage(): PdfDocument.Page {
+            pageNumber += 1
+            y = 36f
+            return document.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+        }
+
+        lines.forEach { (text, textSize) ->
+            val paint = TextPaint(basePaint).apply { this.textSize = textSize }
+            val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .setTextDirection(TextDirectionHeuristics.RTL)
+                .setIncludePad(false)
+                .build()
+            val requiredHeight = layout.height.toFloat() + 4f
+            if (page == null || (y + requiredHeight > 806f && y > 36f)) {
+                page?.let(document::finishPage)
+                page = startPage()
+            }
+            val canvas = requireNotNull(page).canvas
+            canvas.save()
+            canvas.translate(40f, y)
+            layout.draw(canvas)
+            canvas.restore()
+            y += requiredHeight
+        }
+        if (page == null) page = startPage()
+        page?.let(document::finishPage)
     }
 
     private fun persianDigits(value: Long): String = value.toString().map { ch ->

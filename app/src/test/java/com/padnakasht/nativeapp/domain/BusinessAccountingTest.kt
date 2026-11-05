@@ -44,6 +44,19 @@ class BusinessAccountingTest {
         assertEquals(0L, result.outstandingBalanceMinor)
     }
 
+    @Test fun partialRefundReducesNetCashAndReopensTheReceivable() {
+        val result = BusinessAccounting.summarize(
+            listOf(InvoiceAccountingEvent(1, 10, 1_000, "POSTED")),
+            listOf(PaymentAccountingEvent(1, 11, 300)),
+            emptyList(),
+            listOf(RefundAccountingEvent(1, 12, 100))
+        )
+        assertEquals(300L, result.receiptsMinor)
+        assertEquals(100L, result.refundsMinor)
+        assertEquals(200L, result.netCashReceiptsMinor)
+        assertEquals(800L, result.outstandingBalanceMinor)
+    }
+
     @Test fun periodUsesEachEventOwnDate() {
         val invoices = listOf(InvoiceAccountingEvent(1, 10, 1_000, "POSTED"), InvoiceAccountingEvent(2, 40, 2_000, "POSTED"))
         val payments = listOf(PaymentAccountingEvent(1, 20, 300), PaymentAccountingEvent(2, 41, 700))

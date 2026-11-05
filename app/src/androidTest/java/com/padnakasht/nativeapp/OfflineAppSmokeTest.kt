@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertFalse
@@ -143,9 +144,9 @@ class OfflineAppSmokeTest {
         awaitVisibleByScrolling("ثبت سریع تراکنش")
         capture("quick-transaction")
 
-        composeRule.onNodeWithText("فروش و انبار").performScrollTo()
+        // Primary navigation remains visible while the content list scrolls.
         composeRule.onNodeWithText("فروش و انبار").performClick()
-        awaitDisplayed("فروش، مشتریان و کالاها")
+        awaitVisibleByScrolling("مدیریت کسب‌وکار")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
@@ -159,8 +160,11 @@ class OfflineAppSmokeTest {
         composeRule.onNodeWithText("کالاها").performClick()
         composeRule.onNodeWithText("نام محصول").performTextInput("محصول آزمایشی")
         composeRule.onNodeWithText("کد یکتای محصول").performTextInput("CI-TEST-001")
-        composeRule.onNodeWithText("موجودی اولیه").performTextInput("10")
-        composeRule.onNodeWithText("قیمت واحد (تومان)").performTextInput("100000")
+        hideKeyboard()
+        composeRule.onNodeWithTag("select-product-unit").performClick()
+        composeRule.onNodeWithText("کیلوگرم").performClick()
+        composeRule.onNodeWithText("موجودی اولیه", substring = true).performTextInput("10")
+        composeRule.onNodeWithText("قیمت هر کیلوگرم (تومان)").performTextInput("200000")
         hideKeyboard()
         composeRule.onNodeWithTag("register-product").performScrollTo()
         composeRule.onNodeWithTag("register-product").performClick()
@@ -174,10 +178,12 @@ class OfflineAppSmokeTest {
         awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithTag("select-invoice-customer").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-customer").performClick()
-        composeRule.onNodeWithText("مشتری آزمایشی").performClick()
+        awaitDisplayed("مشتری آزمایشی")
+        composeRule.onNodeWithTag("invoice-customer-1").performClick()
         composeRule.onNodeWithTag("select-invoice-product").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-product").performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
+        composeRule.onNodeWithText("مقدار (کیلوگرم)").performTextReplacement("0.5")
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performScrollTo()
         composeRule.onNodeWithText("افزودن قلم به فاکتور").performClick()
         awaitVisibleByScrolling("قلم به سبد فاکتور اضافه شد.")
@@ -192,15 +198,63 @@ class OfflineAppSmokeTest {
         awaitExists("فاکتور ثبت شد و موجودی به‌روزرسانی شد.")
         capture("invoice-summary")
 
+        // Exercise a real receipt and a partial cash refund from the invoice's payment history.
+        awaitVisibleByScrolling("شماره فاکتور (شناسه)")
+        composeRule.onNodeWithText("شماره فاکتور (شناسه)").performTextInput("1")
+        composeRule.onNodeWithText("مبلغ دریافت (تومان)").performTextInput("100000")
+        hideKeyboard()
+        composeRule.onNodeWithText("ثبت دریافت").performScrollTo()
+        composeRule.onNodeWithText("ثبت دریافت").performClick()
+        awaitExists("دریافت ثبت شد.")
+        awaitVisibleByScrolling("بازپرداخت از این رسید", substring = true)
+        composeRule.onNodeWithText("بازپرداخت از این رسید", substring = true).performClick()
+        awaitDisplayed("حداکثر قابل بازپرداخت: ۱۰۰٬۰۰۰ تومان")
+        composeRule.onNodeWithText("مبلغ بازپرداخت (تومان)").performTextInput("20000")
+        composeRule.onNodeWithText("علت بازپرداخت").performTextInput("آزمون بازپرداخت جزئی")
+        hideKeyboard()
+        composeRule.onNodeWithTag("confirm-payment-refund").performClick()
+        awaitVisibleByScrolling("بازپرداخت ثبت شد", substring = true)
+        awaitVisibleByScrolling("وضعیت: بدهکار • ۲۰٬۰۰۰ تومان")
+
+        composeRule.onNodeWithText("خریدها").performScrollTo()
+        composeRule.onNodeWithText("خریدها").performClick()
+        awaitDisplayed("ثبت خرید کالا")
+        composeRule.onNodeWithText("نام تأمین‌کننده").performTextInput("تأمین‌کننده آزمایشی")
+        composeRule.onNodeWithTag("select-purchase-product").performClick()
+        composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
+        composeRule.onNodeWithText("بهای خرید هر کیلوگرم (تومان)").performTextInput("50000")
+        hideKeyboard()
+        composeRule.onNodeWithTag("add-purchase-line").performScrollTo()
+        composeRule.onNodeWithTag("add-purchase-line").performClick()
+        composeRule.onNodeWithTag("post-purchase").performScrollTo()
+        composeRule.onNodeWithTag("post-purchase").performClick()
+        awaitExists("خرید ثبت شد؛ موجودی و حساب تأمین‌کننده به‌روزرسانی شدند.")
+        awaitVisibleByScrolling("تأمین‌کننده آزمایشی", substring = true)
+        awaitVisibleByScrolling("بدهی تأمین‌کننده: ۵۰٬۰۰۰ تومان")
+        composeRule.onNodeWithText("ثبت پرداخت به تأمین‌کننده").performScrollTo()
+        composeRule.onNodeWithText("ثبت پرداخت به تأمین‌کننده").performClick()
+        composeRule.onNodeWithText("مبلغ پرداخت (تومان)").performTextInput("20000")
+        composeRule.onNodeWithText("ثبت پرداخت").performClick()
+        awaitVisibleByScrolling("بدهی تأمین‌کننده: ۳۰٬۰۰۰ تومان")
+        capture("purchases")
+
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(0)
         composeRule.onNodeWithText("گزارش‌ها").performClick()
         awaitDisplayed("گزارش و تحلیل")
         awaitDisplayed("خلاصه فروش فاکتوری")
-        awaitDisplayed("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰ تومان")
+        awaitExists("جمع مبلغ فاکتورهای قطعی: ۱۰۰٬۰۰۰ تومان")
+        awaitExists("دریافتی ثبت‌شده: ۱۰۰٬۰۰۰ تومان")
+        awaitExists("بازپرداخت ثبت‌شده: ۲۰٬۰۰۰ تومان")
+        awaitExists("خالص دریافتی نقدی: ۸۰٬۰۰۰ تومان")
+        awaitExists("بدهی باقی‌مانده: ۲۰٬۰۰۰ تومان")
+        awaitExists("بدهی تأمین‌کنندگان: ۳۰٬۰۰۰ تومان")
+        awaitVisibleByScrolling("خالص دریافتی نقدی: ۸۰٬۰۰۰ تومان")
         capture("reports")
+        awaitVisibleByScrolling("بدهی تأمین‌کنندگان: ۳۰٬۰۰۰ تومان")
+        capture("reports-payables")
         // LazyColumn composes off-screen rows on demand; move to the export card first.
         composeRule.onNodeWithTag("main-content-list").performScrollToIndex(5)
-        awaitVisibleByScrolling("گزارش کامل فروش و جریان نقدی")
+        awaitVisibleByScrolling("گزارش کامل فروش، خرید و جریان نقدی")
 
         // Back from a non-overview section returns to the overview and keeps the app open.
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }

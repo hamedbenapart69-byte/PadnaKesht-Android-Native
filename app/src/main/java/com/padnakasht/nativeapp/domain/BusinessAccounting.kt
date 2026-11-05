@@ -43,6 +43,7 @@ object BusinessAccounting {
         val grossReceipts = sumExact(payments.map { it.amountMinor })
         val postedReceipts = sumExact(payments.filter { it.invoiceId in postedIds }.map { it.amountMinor })
         val refundTotal = sumExact(refunds.map { it.amountMinor })
+        val postedRefunds = sumExact(refunds.filter { it.invoiceId in postedIds }.map { it.amountMinor })
         val netSales = Math.subtractExact(sales, credits)
         return BusinessAccountingSummary(
             postedInvoiceCount = posted.size,
@@ -52,7 +53,7 @@ object BusinessAccounting {
             receiptsMinor = grossReceipts,
             refundsMinor = refundTotal,
             netCashReceiptsMinor = Math.subtractExact(grossReceipts, refundTotal),
-            outstandingBalanceMinor = maxOf(0L, Math.subtractExact(netSales, postedReceipts))
+            outstandingBalanceMinor = maxOf(0L, Math.addExact(Math.subtractExact(netSales, postedReceipts), postedRefunds))
         )
     }
 

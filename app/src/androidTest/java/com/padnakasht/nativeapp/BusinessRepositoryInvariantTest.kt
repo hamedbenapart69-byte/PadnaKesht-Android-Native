@@ -28,6 +28,34 @@ class BusinessRepositoryInvariantTest {
     }
 
     @Test
+    fun reopenedReceivableCanAcceptAnotherPaymentAfterPartialRefund() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-receive-after-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "مشتری دریافت پس از بازپرداخت"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای دریافت", sku = "RECEIVE-AFTER-REFUND", stockQuantity = 2, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val originalPaymentId = repository.receivePayment(invoiceId, 1_000, "تسویه اولیه")
+            repository.refundPayment(invoiceId, originalPaymentId, 300, "بازگشایی بدهی", "reopen-receivable-refund")
+
+            val nextPaymentId = repository.receivePayment(invoiceId, 300, "تسویه مجدد", "collect-after-refund")
+
+            assertTrue(nextPaymentId > 0L)
+            assertEquals(1_300L, dao.getPaymentsTotal(invoiceId))
+            assertEquals(300L, dao.getRefundsTotal(invoiceId))
+            assertEquals(0L, repository.outstandingBalance(invoiceId))
+            assertEquals(0L, dao.observeCustomerBalance(customerId).first())
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-receive-after-refund-test.db").delete()
+        }
+    }
+
+    @Test
     fun singleProductInvoiceRejectsUnknownCustomerWithoutChangingStock() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "repository-invalid-customer-test.db")
@@ -101,6 +129,94 @@ class BusinessRepositoryInvariantTest {
         } finally {
             db.close()
             context.getDatabasePath("repository-paid-cancel-test.db").delete()
+        }
+    }
+
+    @Test
+    fun cancellingInvoiceRefundsOnlyTheRemainingReceiptAmount() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-cancel-after-partial-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Refund then cancel customer"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "Refund then cancel product", sku = "INV-CANCEL-AFTER-REFUND", stockQuantity = 2, unitPriceMinor = 500)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val paymentId = repository.receivePayment(invoiceId, 200, "receipt")
+            repository.refundPayment(invoiceId, paymentId, 75, "partial refund", "cancel-after-refund-partial")
+            
+            assertTrue(repository.cancelInvoice(invoiceId))
+            assertEquals(200L, dao.getRefundsTotal(invoiceId))
+            assertEquals(0L, repository.outstandingBalance(invoiceId))
+            assertEquals(2, dao.observeRefunds(invoiceId).first().size)
+            assertEquals(2L, dao.getProduct(productId)?.stockQuantity)
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-cancel-after-partial-refund-test.db").delete()
+        }
+    }
+
+    @Test
+    fun partialRefundIsIdempotentAndReopensCustomerReceivable() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-partial-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Refund customer"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "Refund product", sku = "INV-PARTIAL-REFUND", stockQuantity = 5, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val paymentId = repository.receivePayment(invoiceId, 300, "partial receipt")
+            val key = "partial-refund-idempotency-test"
+
+            val refundId = repository.refundPayment(invoiceId, paymentId, 100, "customer refund", key)
+            val repeatedRefundId = repository.refundPayment(invoiceId, paymentId, 100, "customer refund", key)
+
+            assertEquals(refundId, repeatedRefundId)
+            assertEquals(100L, dao.getRefundsTotal(invoiceId))
+            assertEquals(800L, repository.outstandingBalance(invoiceId))
+            assertEquals(800L, dao.observeCustomerBalance(customerId).first())
+
+            var excessiveRefundRejected = false
+            try {
+                repository.refundPayment(invoiceId, paymentId, 201, "too much refund", "excessive-refund-test")
+            } catch (_: IllegalArgumentException) {
+                excessiveRefundRejected = true
+            }
+            assertTrue("Refund cannot exceed the unrefunded part of a receipt", excessiveRefundRejected)
+            assertEquals(100L, dao.getRefundsTotal(invoiceId))
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-partial-refund-test.db").delete()
+        }
+    }
+
+    @Test
+    fun paymentIdempotencyNormalizesWhitespaceBeforePersisting() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-payment-idempotency-whitespace-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "مشتری کلید پرداخت"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای کلید پرداخت", sku = "PAYMENT-KEY-WHITESPACE", stockQuantity = 2, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+
+            val first = repository.receivePayment(invoiceId, 100, "رسید", "  stable-payment-key  ")
+            val repeated = repository.receivePayment(invoiceId, 100, "رسید", "stable-payment-key")
+
+            assertEquals(first, repeated)
+            assertEquals(100L, dao.getPaymentsTotal(invoiceId))
+            assertEquals("stable-payment-key", dao.observePayments(invoiceId).first().single().idempotencyKey)
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-payment-idempotency-whitespace-test.db").delete()
         }
     }
 

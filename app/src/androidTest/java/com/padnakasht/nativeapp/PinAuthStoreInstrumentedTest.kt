@@ -1,0 +1,49 @@
+package com.padnakasht.nativeapp
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.padnakasht.nativeapp.security.PinAuthStore
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class PinAuthStoreInstrumentedTest {
+    @Test
+    fun configureAndVerifyAcceptPersianArabicAndAsciiDigits() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("local_pin_verifier", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+        val store = PinAuthStore(context)
+
+        val persianPin = "۱۲۳۴۵۶".toCharArray()
+        val asciiConfirmation = "123456".toCharArray()
+        assertTrue(store.configure(persianPin, asciiConfirmation))
+        assertArrayEquals(CharArray(6) { '\u0000' }, persianPin)
+        assertArrayEquals(CharArray(6) { '\u0000' }, asciiConfirmation)
+
+        val arabicIndicPin = "١٢٣٤٥٦".toCharArray()
+        assertTrue(store.verify(arabicIndicPin))
+        assertArrayEquals(CharArray(6) { '\u0000' }, arabicIndicPin)
+
+        assertTrue(store.verify("123456".toCharArray()))
+    }
+
+    @Test
+    fun repeatedWrongPinsApplyTemporaryLockoutEvenForCorrectPin() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("local_pin_verifier", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        val store = PinAuthStore(context)
+        assertTrue(store.configure("654321".toCharArray(), "654321".toCharArray()))
+
+        repeat(5) {
+            assertFalse(store.verify("000000".toCharArray()))
+        }
+        assertFalse(store.verify("654321".toCharArray()))
+        assertTrue(preferences.getLong("locked_until", 0L) > System.currentTimeMillis())
+    }
+}

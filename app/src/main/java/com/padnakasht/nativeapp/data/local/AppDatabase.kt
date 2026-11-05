@@ -9,15 +9,19 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         TransactionEntity::class,
         CustomerEntity::class,
+        CustomerBalanceAdjustmentEntity::class,
         ProductEntity::class,
         InvoiceEntity::class,
         InvoiceLineEntity::class,
         PaymentEntity::class,
         PaymentRefundEntity::class,
         StockMovementEntity::class,
-        SalesReturnEntity::class
+        SalesReturnEntity::class,
+        PurchaseEntity::class,
+        PurchaseLineEntity::class,
+        PurchasePaymentEntity::class
     ],
-    version = 9,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +29,44 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN unitLabel TEXT NOT NULL DEFAULT 'عدد'")
+                db.execSQL("ALTER TABLE products ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE invoice_lines ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE purchase_lines ADD COLUMN quantityScale INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS purchases (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, supplierName TEXT NOT NULL, occurredAtEpochDay INTEGER NOT NULL, totalMinor INTEGER NOT NULL, status TEXT NOT NULL, notes TEXT NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchases_occurredAtEpochDay ON purchases(occurredAtEpochDay)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchases_supplierName ON purchases(supplierName)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS purchase_lines (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, purchaseId INTEGER NOT NULL, productId INTEGER NOT NULL, quantity INTEGER NOT NULL, unitCostMinor INTEGER NOT NULL, lineTotalMinor INTEGER NOT NULL, FOREIGN KEY(purchaseId) REFERENCES purchases(id) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(productId) REFERENCES products(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_lines_purchaseId ON purchase_lines(purchaseId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_lines_productId ON purchase_lines(productId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS purchase_payments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, purchaseId INTEGER NOT NULL, amountMinor INTEGER NOT NULL, paidAtEpochDay INTEGER NOT NULL, method TEXT NOT NULL, note TEXT NOT NULL, idempotencyKey TEXT NOT NULL, FOREIGN KEY(purchaseId) REFERENCES purchases(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_purchase_payments_purchaseId ON purchase_payments(purchaseId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_purchase_payments_idempotencyKey ON purchase_payments(idempotencyKey)")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE customers ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("CREATE TABLE IF NOT EXISTS customer_balance_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, customerId INTEGER NOT NULL, amountDeltaMinor INTEGER NOT NULL, occurredAtEpochDay INTEGER NOT NULL, reason TEXT NOT NULL, FOREIGN KEY(customerId) REFERENCES customers(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_balance_adjustments_customerId ON customer_balance_adjustments(customerId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_balance_adjustments_occurredAtEpochDay ON customer_balance_adjustments(occurredAtEpochDay)")
+            }
+        }
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {

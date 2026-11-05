@@ -1,6 +1,7 @@
 package com.padnakasht.nativeapp.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -38,8 +40,15 @@ import com.padnakasht.nativeapp.ui.normalizePersianDigits
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-private data class DraftLine(val productId: Long, val productName: String, val quantity: Long, val unitPriceMinor: Long) {
-    val total: Long get() = Math.multiplyExact(quantity, unitPriceMinor)
+private data class DraftLine(
+    val productId: Long,
+    val productName: String,
+    val quantity: Long,
+    val unitPriceMinor: Long,
+    val quantityScale: Long,
+    val unitLabel: String
+) {
+    val total: Long get() = com.padnakasht.nativeapp.domain.calculateScaledAmount(quantity, unitPriceMinor, quantityScale)
 }
 
 @Composable
@@ -53,10 +62,28 @@ fun BusinessManagement(repository: BusinessRepository) {
     var customerName by remember { mutableStateOf("") }
     var customerPhone by remember { mutableStateOf("") }
     var customerSearch by remember { mutableStateOf("") }
+    var editingCustomerId by remember { mutableStateOf<Long?>(null) }
+    var editingCustomerName by remember { mutableStateOf("") }
+    var editingCustomerPhone by remember { mutableStateOf("") }
+    var editingCustomerNotes by remember { mutableStateOf("") }
+    var adjustingCustomerId by remember { mutableStateOf<Long?>(null) }
+    var customerBalanceDelta by remember { mutableStateOf("") }
+    var customerBalanceReason by remember { mutableStateOf("") }
+    var editingProductId by remember { mutableStateOf<Long?>(null) }
+    var editingProductName by remember { mutableStateOf("") }
+    var editingProductSku by remember { mutableStateOf("") }
+    var editingProductCategory by remember { mutableStateOf("عمومی") }
+    var editingProductPrice by remember { mutableStateOf("") }
+    var editingProductLowStock by remember { mutableStateOf("0") }
+    var editingProductUnitLabel by remember { mutableStateOf("عدد") }
+    var editingProductQuantityScale by remember { mutableStateOf(1L) }
     var activeBusinessTab by remember { mutableStateOf("customers") }
     var productName by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
     var productCategory by remember { mutableStateOf("عمومی") }
+    var productUnitLabel by remember { mutableStateOf("عدد") }
+    var productUnitScale by remember { mutableStateOf(1L) }
+    var productUnitMenuExpanded by remember { mutableStateOf(false) }
     var stock by remember { mutableStateOf("0") }
     var price by remember { mutableStateOf("") }
     var lowStockThreshold by remember { mutableStateOf("2") }
@@ -75,6 +102,8 @@ fun BusinessManagement(repository: BusinessRepository) {
     var returnInvoiceId by remember { mutableStateOf("") }
     var returnLineId by remember { mutableStateOf<Long?>(null) }
     var returnQuantity by remember { mutableStateOf("1") }
+    var returnQuantityScale by remember { mutableStateOf(1L) }
+    var returnUnitLabel by remember { mutableStateOf("عدد") }
     var returnReason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     val haptic = LocalHapticFeedback.current
@@ -93,7 +122,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         PremiumBrandPanel(dateLabel = JalaliDate.format(LocalDate.now()))
         SectionHeading("مدیریت کسب‌وکار", "فروش، موجودی و حساب مشتریان در یک محیط آفلاین")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها").forEach { (tab, label) ->
+            listOf("customers" to "مشتریان", "inventory" to "کالاها", "invoices" to "فاکتورها", "purchases" to "خریدها").forEach { (tab, label) ->
                 androidx.compose.material3.FilterChip(
                     selected = activeBusinessTab == tab,
                     onClick = { activeBusinessTab = tab },
@@ -105,7 +134,7 @@ fun BusinessManagement(repository: BusinessRepository) {
         if (activeBusinessTab == "customers") {
         SectionHeading("مشتریان", "ثبت و جست‌وجوی مشتریان و مانده حساب")
         OutlinedTextField(customerName, { customerName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام مشتری") }, singleLine = true)
-        OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, singleLine = true)
+        OutlinedTextField(customerPhone, { customerPhone = it }, Modifier.fillMaxWidth(), label = { Text("تلفن (اختیاری)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
@@ -128,7 +157,29 @@ fun BusinessManagement(repository: BusinessRepository) {
                 phone = customer.phone,
                 selected = selectedCustomer == customer.id,
                 repository = repository,
-                onSelect = { selectedCustomer = customer.id }
+                isActive = customer.isActive,
+                onSelect = { selectedCustomer = customer.id },
+                onEdit = {
+                    editingCustomerId = customer.id
+                    editingCustomerName = customer.name
+                    editingCustomerPhone = customer.phone
+                    editingCustomerNotes = customer.notes
+                },
+                onAdjustBalance = {
+                    adjustingCustomerId = customer.id
+                    customerBalanceDelta = ""
+                    customerBalanceReason = ""
+                },
+                onToggleActive = {
+                    scope.launch {
+                        runCatching { repository.setCustomerActive(customer.id, !customer.isActive) }
+                            .onSuccess {
+                                if (customer.isActive && selectedCustomer == customer.id) selectedCustomer = null
+                                message = if (customer.isActive) "مشتری بایگانی شد؛ سوابق مالی حفظ شدند." else "مشتری دوباره فعال شد."
+                            }
+                            .onFailure { message = "تغییر وضعیت مشتری انجام نشد: ${it.message ?: "خطای نامشخص"}" }
+                    }
+                }
             )
         }
 
@@ -138,50 +189,98 @@ fun BusinessManagement(repository: BusinessRepository) {
         OutlinedTextField(productName, { productName = it; message = null }, Modifier.fillMaxWidth(), label = { Text("نام محصول") }, singleLine = true)
         OutlinedTextField(sku, { sku = it; message = null }, Modifier.fillMaxWidth(), label = { Text("کد یکتای محصول") }, singleLine = true)
         OutlinedTextField(productCategory, { productCategory = it; message = null }, Modifier.fillMaxWidth(), label = { Text("دسته‌بندی کالا") }, singleLine = true)
-        OutlinedTextField(stock, { stock = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه") }, singleLine = true)
-        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت واحد (تومان)") }, singleLine = true)
-        OutlinedTextField(lowStockThreshold, { lowStockThreshold = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی (صفر = غیرفعال)") }, singleLine = true)
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth()) {
+            androidx.compose.material3.OutlinedButton(onClick = { productUnitMenuExpanded = true }, modifier = Modifier.fillMaxWidth().testTag("select-product-unit")) {
+                Text("واحد فروش: $productUnitLabel")
+            }
+            androidx.compose.material3.DropdownMenu(expanded = productUnitMenuExpanded, onDismissRequest = { productUnitMenuExpanded = false }) {
+                listOf("عدد" to 1L, "بطری" to 1L, "بسته" to 1L, "کیلوگرم" to 1_000L, "لیتر" to 1_000L, "گرم" to 1L).forEach { (label, scale) ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = { productUnitLabel = label; productUnitScale = scale; productUnitMenuExpanded = false }
+                    )
+                }
+            }
+        }
+        OutlinedTextField(stock, { stock = it }, Modifier.fillMaxWidth(), label = { Text("موجودی اولیه ($productUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+        OutlinedTextField(price, { price = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("قیمت هر $productUnitLabel (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+        OutlinedTextField(lowStockThreshold, { lowStockThreshold = it; message = null }, Modifier.fillMaxWidth(), label = { Text("هشدار کمبود موجودی ($productUnitLabel؛ صفر = غیرفعال)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         Button(
             onClick = {
                 if (isSaving) return@Button
                 isSaving = true
                 scope.launch {
-                    runCatching { repository.addProduct(productName, sku, stock.toLong(), price.toLong(), productCategory, lowStockThreshold.toLong()) }
-                        .onSuccess { productName = ""; sku = ""; productCategory = "عمومی"; stock = "0"; price = ""; lowStockThreshold = "2"; message = "محصول ثبت شد." }
+                    val parsedStock = parseScaledQuantity(stock, productUnitScale)
+                    val parsedThreshold = parseScaledQuantity(lowStockThreshold, productUnitScale)
+                    runCatching {
+                        require(parsedStock != null && parsedStock >= 0L && parsedThreshold != null && parsedThreshold >= 0L)
+                        repository.addProduct(productName, sku, parsedStock, price.toLong(), productCategory, parsedThreshold, productUnitLabel, productUnitScale)
+                    }
+                        .onSuccess { productName = ""; sku = ""; productCategory = "عمومی"; productUnitLabel = "عدد"; productUnitScale = 1L; stock = "0"; price = ""; lowStockThreshold = "2"; message = "محصول ثبت شد." }
                         .onFailure { message = "ثبت محصول ناموفق بود؛ نام، کد یکتا، موجودی و قیمت را بررسی کنید." }
                         .also { isSaving = false }
                 }
             },
-            enabled = productName.isNotBlank() && sku.isNotBlank() && stock.toLongOrNull() != null && price.toLongOrNull() != null && lowStockThreshold.toLongOrNull()?.let { it >= 0 } == true && !isSaving,
+            enabled = productName.isNotBlank() && sku.isNotBlank() && parseScaledQuantity(stock, productUnitScale)?.let { it >= 0L } == true && price.toLongOrNull() != null && parseScaledQuantity(lowStockThreshold, productUnitScale)?.let { it >= 0L } == true && !isSaving,
             modifier = Modifier.fillMaxWidth().testTag("register-product")
         ) { Text("ثبت محصول") }
         products.forEach { product ->
-            TextButton(onClick = { selectedProduct = product.id }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatFinancialAmount(product.stockQuantity)} • قیمت ${formatToman(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}")
+            Column(Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { selectedProduct = product.id },
+                    enabled = product.isActive,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("${if (selectedProduct == product.id) "✓ " else ""}${product.name} • ${product.category} • کد ${product.sku} • موجودی ${formatScaledQuantity(product.stockQuantity, product.quantityScale)} ${product.unitLabel} • قیمت ${formatToman(product.unitPriceMinor)}${if (product.lowStockThreshold > 0 && product.stockQuantity <= product.lowStockThreshold) " • ⚠ موجودی کم" else ""}${if (product.isActive) "" else " • بایگانی"}")
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = {
+                        editingProductId = product.id
+                        editingProductName = product.name
+                        editingProductSku = product.sku
+                        editingProductCategory = product.category
+                        editingProductPrice = product.unitPriceMinor.toString()
+                        editingProductLowStock = formatScaledQuantity(product.lowStockThreshold, product.quantityScale)
+                        editingProductUnitLabel = product.unitLabel
+                        editingProductQuantityScale = product.quantityScale
+                    }, modifier = Modifier.weight(1f)) { Text("ویرایش") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            runCatching { repository.setProductActive(product.id, !product.isActive) }
+                                .onSuccess {
+                                    if (product.isActive && selectedProduct == product.id) selectedProduct = null
+                                    message = if (product.isActive) "کالا بایگانی شد؛ سوابق فاکتور و گردش انبار حفظ شدند." else "کالا دوباره فعال شد."
+                                }
+                                .onFailure { message = "تغییر وضعیت کالا انجام نشد: ${it.message ?: "خطای نامشخص"}" }
+                        }
+                    }, modifier = Modifier.weight(1f)) { Text(if (product.isActive) "بایگانی" else "فعال‌سازی") }
+                }
             }
         }
 
         GlassPanel(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("اصلاح موجودی با ثبت سابقه", style = MaterialTheme.typography.titleMedium)
-                Text("کالا را از فهرست بالا انتخاب کنید. عدد مثبت ورود و عدد منفی خروج دستی است.", style = MaterialTheme.typography.bodySmall)
+                val adjustmentProduct = products.firstOrNull { it.id == selectedProduct }
+                Text("کالا را از فهرست بالا انتخاب کنید. مقدار مثبت ورود و مقدار منفی خروج دستی است.", style = MaterialTheme.typography.bodySmall)
+                Text("واحد انتخاب‌شده: ${adjustmentProduct?.unitLabel ?: "—"}", style = MaterialTheme.typography.labelMedium)
                 OutlinedTextField(
                     adjustmentDelta,
                     {
-                        val normalized = normalizePersianDigits(it)
-                        adjustmentDelta = if (normalized == "-" || normalized.all(Char::isDigit)) normalized
-                        else normalized.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') }
+                        adjustmentDelta = normalizePersianDigits(it)
                     },
                     Modifier.fillMaxWidth(),
-                    label = { Text("تغییر تعداد (+/-)") },
+                    label = { Text("تغییر مقدار (+/-)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
                 OutlinedTextField(adjustmentReason, { adjustmentReason = it }, Modifier.fillMaxWidth(), label = { Text("علت اصلاح موجودی") }, singleLine = true)
                 Button(
                     onClick = {
                         val productId = selectedProduct
-                        val delta = adjustmentDelta.toLongOrNull()
-                        if (productId == null || delta == null || delta == 0L || adjustmentReason.isBlank()) {
+                        val product = adjustmentProduct
+                        val delta = product?.let { parseScaledQuantity(adjustmentDelta, it.quantityScale) }
+                        if (productId == null || product == null || delta == null || delta == 0L || adjustmentReason.isBlank()) {
                             message = "کالا، مقدار غیرصفر و علت اصلاح را وارد کنید."
                         } else if (isSaving) {
                             message = "عملیات قبلی هنوز در حال انجام است."
@@ -195,7 +294,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                             }
                         }
                     },
-                    enabled = selectedProduct != null && adjustmentDelta.toLongOrNull()?.let { it != 0L } == true && adjustmentReason.isNotBlank() && !isSaving,
+                    enabled = adjustmentProduct != null && parseScaledQuantity(adjustmentDelta, adjustmentProduct.quantityScale)?.let { it != 0L } == true && adjustmentReason.isNotBlank() && !isSaving,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("ثبت اصلاح موجودی") }
             }
@@ -209,13 +308,18 @@ fun BusinessManagement(repository: BusinessRepository) {
                 GlassPanel(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(productLabel, style = MaterialTheme.typography.titleSmall)
-                        Text("${if (movement.quantityDelta > 0) "+" else ""}${formatFinancialAmount(movement.quantityDelta)} • ${movement.reason}")
+                        val movementProduct = products.firstOrNull { it.id == movement.productId }
+                        val movementQuantity = movementProduct?.let { formatScaledQuantity(movement.quantityDelta, it.quantityScale) + " " + it.unitLabel } ?: formatFinancialAmount(movement.quantityDelta)
+                        Text("${if (movement.quantityDelta > 0) "+" else ""}$movementQuantity • ${movement.reason}")
                         Text(JalaliDate.format(LocalDate.ofEpochDay(movement.occurredAtEpochDay)), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         }
 
+        }
+        if (activeBusinessTab == "purchases") {
+            PurchaseManagement(repository)
         }
         if (activeBusinessTab == "invoices") {
         SectionHeading("صدور فاکتور", "انتخاب مشتری، افزودن اقلام و ثبت سررسید")
@@ -230,9 +334,10 @@ fun BusinessManagement(repository: BusinessRepository) {
                 expanded = customerMenuExpanded,
                 onDismissRequest = { customerMenuExpanded = false }
             ) {
-                customers.forEach { customer ->
+                customers.filter { it.isActive }.forEach { customer ->
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(customer.name) },
+                        modifier = Modifier.testTag("invoice-customer-${customer.id}"),
                         onClick = { selectedCustomer = customer.id; customerMenuExpanded = false }
                     )
                 }
@@ -244,48 +349,49 @@ fun BusinessManagement(repository: BusinessRepository) {
                 modifier = Modifier.fillMaxWidth().testTag("select-invoice-product")
             ) {
                 val selected = products.firstOrNull { it.id == selectedProduct }
-                Text("کالا: " + (selected?.let { it.name + " • موجودی " + formatFinancialAmount(it.stockQuantity) + " • " + formatToman(it.unitPriceMinor) } ?: "انتخاب کالا"))
+                Text("کالا: " + (selected?.let { it.name + " • موجودی " + formatScaledQuantity(it.stockQuantity, it.quantityScale) + " " + it.unitLabel + " • " + formatToman(it.unitPriceMinor) } ?: "انتخاب کالا"))
             }
             androidx.compose.material3.DropdownMenu(
                 expanded = productMenuExpanded,
                 onDismissRequest = { productMenuExpanded = false }
             ) {
-                products.forEach { product ->
+                products.filter { it.isActive }.forEach { product ->
                     androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(product.name + " • موجودی " + formatFinancialAmount(product.stockQuantity) + " • " + formatToman(product.unitPriceMinor)) },
+                        text = { Text(product.name + " • موجودی " + formatScaledQuantity(product.stockQuantity, product.quantityScale) + " " + product.unitLabel + " • " + formatToman(product.unitPriceMinor)) },
                         onClick = { selectedProduct = product.id; productMenuExpanded = false }
                     )
                 }
             }
         }
-        OutlinedTextField(quantity, { quantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد") }, singleLine = true)
+        val selectedInvoiceProduct = products.firstOrNull { it.id == selectedProduct }
+        OutlinedTextField(quantity, { quantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار (${selectedInvoiceProduct?.unitLabel ?: "واحد کالا"})") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         Button(
             onClick = {
-                val product = products.firstOrNull { it.id == selectedProduct }
-                val qty = quantity.toLongOrNull()
-                if (product == null || qty == null || qty <= 0) message = "مشتری، محصول و تعداد معتبر را انتخاب کنید."
+                val product = selectedInvoiceProduct
+                val qty = product?.let { parseScaledQuantity(quantity, it.quantityScale) }
+                if (product == null || qty == null || qty <= 0L) message = "مشتری، کالا و مقدار معتبر را وارد کنید."
                 else {
                     val existingIndex = cart.indexOfFirst { it.productId == product.id }
                     if (existingIndex >= 0) {
                         val old = cart[existingIndex]
                         cart[existingIndex] = old.copy(quantity = Math.addExact(old.quantity, qty))
-                    } else cart.add(DraftLine(product.id, product.name, qty, product.unitPriceMinor))
+                    } else cart.add(DraftLine(product.id, product.name, qty, product.unitPriceMinor, product.quantityScale, product.unitLabel))
                     message = "قلم به سبد فاکتور اضافه شد."
                 }
             },
-            enabled = selectedProduct != null && quantity.toLongOrNull()?.let { it > 0 } == true,
+            enabled = selectedInvoiceProduct != null && parseScaledQuantity(quantity, selectedInvoiceProduct.quantityScale)?.let { it > 0L } == true,
             modifier = Modifier.fillMaxWidth()
         ) { Text("افزودن قلم به فاکتور") }
         cart.forEachIndexed { index, line ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${line.productName} × ${formatFinancialAmount(line.quantity)} = ${formatToman(line.total)}")
+                Text("${line.productName} × ${formatScaledQuantity(line.quantity, line.quantityScale)} ${line.unitLabel} = ${formatToman(line.total)}")
                 TextButton(onClick = { cart.removeAt(index) }) { Text("حذف") }
             }
         }
         val invoiceSubtotal = cart.fold(0L) { total, line -> Math.addExact(total, line.total) }
         val parsedDiscount = invoiceDiscount.toLongOrNull()
         val parsedDueDate = invoiceDueDate.trim().takeIf { it.isNotEmpty() }?.let { runCatching { JalaliDate.parse(it) }.getOrNull() }
-        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (تومان)") }, singleLine = true)
+        OutlinedTextField(invoiceDiscount, { invoiceDiscount = normalizePersianDigits(it).filter(Char::isDigit); message = null }, Modifier.fillMaxWidth(), label = { Text("تخفیف کل (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
         OutlinedTextField(invoiceDueDate, { invoiceDueDate = it; message = null }, Modifier.fillMaxWidth(), label = { Text("سررسید اختیاری (شمسی ۱۴۰۵/۰۷/۲۹)") }, singleLine = true)
         Text("جمع قبل از تخفیف: ${formatToman(invoiceSubtotal)} • تخفیف: ${formatToman(parsedDiscount ?: 0L)} • مبلغ نهایی: ${if (parsedDiscount != null && parsedDiscount in 0..invoiceSubtotal) formatToman(invoiceSubtotal - parsedDiscount) else "نامعتبر"}")
         Button(
@@ -301,7 +407,7 @@ fun BusinessManagement(repository: BusinessRepository) {
                     runCatching {
                         repository.createInvoice(
                             customerId,
-                            cart.map { InvoiceLineEntity(invoiceId = 0, productId = it.productId, quantity = it.quantity, unitPriceMinor = it.unitPriceMinor, lineTotalMinor = it.total) },
+                            cart.map { InvoiceLineEntity(invoiceId = 0, productId = it.productId, quantity = it.quantity, unitPriceMinor = it.unitPriceMinor, lineTotalMinor = it.total, quantityScale = it.quantityScale) },
                             discountMinor = parsedDiscount,
                             dueAtEpochDay = parsedDueDate?.toEpochDay()
                         )
@@ -318,8 +424,8 @@ fun BusinessManagement(repository: BusinessRepository) {
         ) { Text("ثبت نهایی فاکتور") }
 
         SectionHeading("فاکتورها و دریافت‌ها", "مانده، پرداخت‌های ثبت‌شده و وضعیت سررسید")
-        OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, singleLine = true)
-        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (تومان)") }, singleLine = true)
+        OutlinedTextField(paymentInvoice, { next -> if (paymentInvoice != next) paymentOperationKey = null; paymentInvoice = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("شماره فاکتور (شناسه)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+        OutlinedTextField(paymentAmount, { next -> if (paymentAmount != next) paymentOperationKey = null; paymentAmount = normalizePersianDigits(next).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("مبلغ دریافت (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
         Button(
             onClick = {
                 val invoiceId = paymentInvoice.toLongOrNull()
@@ -348,9 +454,10 @@ fun BusinessManagement(repository: BusinessRepository) {
         Text("برگشت به‌صورت مستقل ثبت می‌شود؛ موجودی افزایش می‌یابد و اعتبار مشتری از مانده فاکتور کسر می‌شود.")
         OutlinedTextField(
             returnInvoiceId,
-            { returnInvoiceId = normalizePersianDigits(it).filter(Char::isDigit); returnLineId = null },
+            { returnInvoiceId = normalizePersianDigits(it).filter(Char::isDigit); returnLineId = null; returnQuantityScale = 1L; returnUnitLabel = "عدد" },
             Modifier.fillMaxWidth(),
             label = { Text("شناسه فاکتور برگشت") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true
         )
         val selectedReturnInvoice = invoices.firstOrNull { it.id == returnInvoiceId.toLongOrNull() }
@@ -360,17 +467,17 @@ fun BusinessManagement(repository: BusinessRepository) {
                 repository = repository,
                 products = products,
                 selectedLineId = returnLineId,
-                onSelect = { returnLineId = it }
+                onSelect = { lineId, scale, label -> returnLineId = lineId; returnQuantityScale = scale; returnUnitLabel = label }
             )
         }
-        OutlinedTextField(returnQuantity, { returnQuantity = normalizePersianDigits(it).filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("تعداد برگشتی") }, singleLine = true)
+        OutlinedTextField(returnQuantity, { returnQuantity = it }, Modifier.fillMaxWidth(), label = { Text("مقدار برگشتی ($returnUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
         OutlinedTextField(returnReason, { returnReason = it; message = null }, Modifier.fillMaxWidth(), label = { Text("علت برگشت") }, singleLine = true)
         Button(
             onClick = {
                 val invoiceId = returnInvoiceId.toLongOrNull()
                 val lineId = returnLineId
-                val qty = returnQuantity.toLongOrNull()
-                if (invoiceId == null || lineId == null || qty == null || qty <= 0 || returnReason.isBlank()) {
+                val qty = parseScaledQuantity(returnQuantity, returnQuantityScale)
+                if (invoiceId == null || lineId == null || qty == null || qty <= 0L || returnReason.isBlank()) {
                     message = "فاکتور، قلم، تعداد معتبر و علت برگشت را وارد کنید."
                 } else if (isSaving) {
                     message = "عملیات قبلی هنوز در حال انجام است."
@@ -380,6 +487,8 @@ fun BusinessManagement(repository: BusinessRepository) {
                         runCatching { repository.recordReturn(invoiceId, lineId, qty, returnReason) }
                             .onSuccess {
                                 returnQuantity = "1"
+                                returnQuantityScale = 1L
+                                returnUnitLabel = "عدد"
                                 returnReason = ""
                                 returnLineId = null
                                 message = "برگشت ثبت شد؛ موجودی و اعتبار مشتری به‌روزرسانی شد."
@@ -389,11 +498,115 @@ fun BusinessManagement(repository: BusinessRepository) {
                     }
                 }
             },
-            enabled = selectedReturnInvoice != null && returnLineId != null && returnQuantity.toLongOrNull()?.let { it > 0 } == true && returnReason.isNotBlank() && !isSaving,
+            enabled = selectedReturnInvoice != null && returnLineId != null && parseScaledQuantity(returnQuantity, returnQuantityScale)?.let { it > 0L } == true && returnReason.isNotBlank() && !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) { Text("ثبت برگشت کالا") }
         }
         if (message != null) Text(message!!, color = if (message!!.contains("ناموفق") || message!!.contains("نشد")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+    }
+
+    if (editingCustomerId != null) {
+        AlertDialog(
+            onDismissRequest = { editingCustomerId = null },
+            title = { Text("ویرایش مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(editingCustomerName, { editingCustomerName = it }, label = { Text("نام مشتری") }, singleLine = true)
+                    OutlinedTextField(editingCustomerPhone, { editingCustomerPhone = it }, label = { Text("تلفن") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true)
+                    OutlinedTextField(editingCustomerNotes, { editingCustomerNotes = it }, label = { Text("یادداشت") })
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = editingCustomerName.isNotBlank() && !isSaving, onClick = {
+                    val id = editingCustomerId ?: return@TextButton
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.updateCustomer(id, editingCustomerName, editingCustomerPhone, editingCustomerNotes) }
+                            .onSuccess { message = "اطلاعات مشتری ذخیره شد."; editingCustomerId = null }
+                            .onFailure { message = "ویرایش مشتری ناموفق بود: ${it.message ?: "خطای نامشخص"}" }
+                            .also { isSaving = false }
+                    }
+                }) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editingCustomerId = null }) { Text("انصراف") } }
+        )
+    }
+
+    if (editingProductId != null) {
+        AlertDialog(
+            onDismissRequest = { editingProductId = null },
+            title = { Text("ویرایش کالا") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تغییر مشخصات کالا، قیمت اقلام فاکتورهای قبلی را دست‌کاری نمی‌کند و موجودی فعلی نیز جداگانه حفظ می‌شود.")
+                    OutlinedTextField(editingProductName, { editingProductName = it }, label = { Text("نام کالا") }, singleLine = true)
+                    OutlinedTextField(editingProductSku, { editingProductSku = it }, label = { Text("کد یکتا") }, singleLine = true)
+                    OutlinedTextField(editingProductCategory, { editingProductCategory = it }, label = { Text("دسته‌بندی") }, singleLine = true)
+                    OutlinedTextField(editingProductPrice, { editingProductPrice = normalizePersianDigits(it).filter(Char::isDigit) }, label = { Text("قیمت فعلی (تومان)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                    Text("واحد کالا: $editingProductUnitLabel (برای حفظ سوابق، واحد پس از ایجاد قابل تغییر نیست)")
+                    OutlinedTextField(editingProductLowStock, { editingProductLowStock = it }, label = { Text("حد هشدار موجودی ($editingProductUnitLabel)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = editingProductName.isNotBlank() && editingProductSku.isNotBlank() &&
+                        editingProductPrice.toLongOrNull() != null && parseScaledQuantity(editingProductLowStock, editingProductQuantityScale)?.let { it >= 0L } == true && !isSaving,
+                    onClick = {
+                        val id = editingProductId ?: return@TextButton
+                        val unitPrice = editingProductPrice.toLongOrNull() ?: return@TextButton
+                        val lowStock = parseScaledQuantity(editingProductLowStock, editingProductQuantityScale) ?: return@TextButton
+                        isSaving = true
+                        scope.launch {
+                            runCatching {
+                                repository.updateProduct(id, editingProductName, editingProductSku, unitPrice, editingProductCategory, lowStock)
+                            }
+                                .onSuccess { message = "مشخصات کالا ذخیره شد؛ موجودی و سوابق فروش حفظ شدند."; editingProductId = null }
+                                .onFailure { message = "ویرایش کالا انجام نشد؛ کد تکراری یا اطلاعات نامعتبر را بررسی کنید." }
+                                .also { isSaving = false }
+                        }
+                    }
+                ) { Text("ذخیره") }
+            },
+            dismissButton = { TextButton(onClick = { editingProductId = null }) { Text("انصراف") } }
+        )
+    }
+
+    if (adjustingCustomerId != null) {
+        AlertDialog(
+            onDismissRequest = { adjustingCustomerId = null },
+            title = { Text("اصلاح مانده حساب مشتری") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("مقدار مثبت، بدهی مشتری را افزایش می‌دهد؛ مقدار منفی، بدهی را کاهش می‌دهد.")
+                    OutlinedTextField(
+                        customerBalanceDelta,
+                        { value ->
+                            val normalized = normalizePersianDigits(value)
+                            customerBalanceDelta = if (normalized == "-") normalized
+                            else normalized.filterIndexed { index, ch -> ch.isDigit() || (index == 0 && ch == '-') }
+                        },
+                        label = { Text("تغییر مانده (تومان)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true
+                    )
+                    OutlinedTextField(customerBalanceReason, { customerBalanceReason = it }, label = { Text("علت اصلاح") })
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = customerBalanceDelta.toLongOrNull()?.let { it != 0L } == true && customerBalanceReason.isNotBlank() && !isSaving, onClick = {
+                    val id = adjustingCustomerId ?: return@TextButton
+                    val delta = customerBalanceDelta.toLongOrNull() ?: return@TextButton
+                    isSaving = true
+                    scope.launch {
+                        runCatching { repository.adjustCustomerBalance(id, delta, customerBalanceReason) }
+                            .onSuccess { message = "اصلاح حساب ثبت شد."; adjustingCustomerId = null }
+                            .onFailure { message = "اصلاح حساب ناموفق بود: ${it.message ?: "خطای نامشخص"}" }
+                            .also { isSaving = false }
+                    }
+                }) { Text("ثبت اصلاح حساب") }
+            },
+            dismissButton = { TextButton(onClick = { adjustingCustomerId = null }) { Text("انصراف") } }
+        )
     }
 }
 
@@ -403,9 +616,18 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
     val payments by repository.observePayments(invoice.id).collectAsState(initial = emptyList())
     val refunds by repository.observeRefunds(invoice.id).collectAsState(initial = emptyList())
     val returns by repository.observeSalesReturns(invoice.id).collectAsState(initial = emptyList())
-    val balance = invoice.totalMinor - paid - returns.sumOf { it.creditAmountMinor }
+    val products by repository.products.collectAsState(initial = emptyList())
+    val refunded = refunds.fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+    val returnedCredit = returns.fold(0L) { total, returned -> Math.addExact(total, returned.creditAmountMinor) }
+    val balance = Math.subtractExact(Math.addExact(invoice.totalMinor - paid, refunded), returnedCredit)
     var showCancelConfirmation by remember { mutableStateOf(false) }
     var cancellationMessage by remember { mutableStateOf<String?>(null) }
+    var refundPaymentId by remember { mutableStateOf<Long?>(null) }
+    var refundAmount by remember { mutableStateOf("") }
+    var refundReason by remember { mutableStateOf("") }
+    var refundOperationKey by remember { mutableStateOf<String?>(null) }
+    var refundMessage by remember { mutableStateOf<String?>(null) }
+    var isRefunding by remember { mutableStateOf(false) }
     val cancelScope = rememberCoroutineScope()
     GlassPanel(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(10.dp)) {
@@ -424,13 +646,33 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             if (returns.isNotEmpty()) {
                 Text("سوابق برگشت کالا", style = MaterialTheme.typography.labelLarge)
                 returns.forEach { returned ->
-                    Text("برگشت ${formatFinancialAmount(returned.quantity)} عدد • اعتبار ${formatToman(returned.creditAmountMinor)} • ${returned.reason}")
+                    val returnedProduct = products.firstOrNull { it.id == returned.productId }
+            val returnedQuantity = returnedProduct?.let { formatScaledQuantity(returned.quantity, it.quantityScale) + " " + it.unitLabel } ?: formatFinancialAmount(returned.quantity)
+            Text("برگشت $returnedQuantity • اعتبار ${formatToman(returned.creditAmountMinor)} • ${returned.reason}")
                 }
             }
             if (payments.isNotEmpty()) {
                 Text("تاریخچه دریافت‌ها", style = MaterialTheme.typography.labelLarge)
                 payments.forEach { payment ->
-                    Text("دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                    val refundedForPayment = refunds.filter { it.paymentId == payment.id }
+                        .fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+                    val refundable = payment.amountMinor - refundedForPayment
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("رسید #${formatFinancialAmount(payment.id)} • دریافت ${formatToman(payment.amountMinor)} • روز ثبت ${JalaliDate.format(LocalDate.ofEpochDay(payment.paidAtEpochDay))} • ${payment.method}")
+                        if (invoice.status == "POSTED" && refundable > 0L) {
+                            TextButton(
+                                onClick = {
+                                    refundPaymentId = payment.id
+                                    refundAmount = ""
+                                    refundReason = ""
+                                    refundOperationKey = null
+                                    refundMessage = null
+                                },
+                                enabled = !isRefunding,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("بازپرداخت از این رسید • مانده قابل بازپرداخت ${formatToman(refundable)}") }
+                        }
+                    }
                 }
             }
             if (refunds.isNotEmpty()) {
@@ -446,6 +688,64 @@ private fun InvoiceBalanceRow(invoice: InvoiceEntity, repository: BusinessReposi
             }
             cancellationMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
+    }
+    if (refundPaymentId != null) {
+        val payment = payments.firstOrNull { it.id == refundPaymentId }
+        val alreadyRefunded = refunds.filter { it.paymentId == refundPaymentId }
+            .fold(0L) { total, refund -> Math.addExact(total, refund.amountMinor) }
+        val refundable = (payment?.amountMinor ?: 0L) - alreadyRefunded
+        AlertDialog(
+            onDismissRequest = { if (!isRefunding) refundPaymentId = null },
+            title = { Text("ثبت بازپرداخت") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("این بازپرداخت به رسید انتخاب‌شده متصل می‌شود؛ مبلغ بازپرداخت به مانده بدهی فاکتور اضافه خواهد شد.")
+                    Text("حداکثر قابل بازپرداخت: ${formatToman(refundable)}")
+                    OutlinedTextField(
+                        refundAmount,
+                        { value -> refundAmount = normalizePersianDigits(value).filter(Char::isDigit); refundOperationKey = null; refundMessage = null },
+                        label = { Text("مبلغ بازپرداخت (تومان)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        refundReason,
+                        { value -> refundReason = value; refundOperationKey = null; refundMessage = null },
+                        label = { Text("علت بازپرداخت") }
+                    )
+                    refundMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isRefunding && payment != null && refundAmount.toLongOrNull()?.let { it > 0L && it <= refundable } == true && refundReason.isNotBlank(),
+                    modifier = Modifier.testTag("confirm-payment-refund"),
+                    onClick = {
+                        val selectedPayment = payment ?: return@TextButton
+                        val amount = refundAmount.toLongOrNull() ?: return@TextButton
+                        if (refundOperationKey == null) refundOperationKey = java.util.UUID.randomUUID().toString()
+                        isRefunding = true
+                        cancelScope.launch {
+                            runCatching {
+                                repository.refundPayment(invoice.id, selectedPayment.id, amount, refundReason, requireNotNull(refundOperationKey))
+                            }.onSuccess {
+                                refundPaymentId = null
+                                refundAmount = ""
+                                refundReason = ""
+                                refundOperationKey = null
+                                refundMessage = null
+                                cancellationMessage = "بازپرداخت ثبت شد و مانده حساب به‌روزرسانی شد."
+                            }.onFailure { error ->
+                                refundMessage = error.message ?: "ثبت بازپرداخت ناموفق بود."
+                            }.also { isRefunding = false }
+                        }
+                    }
+                ) { Text(if (isRefunding) "در حال ثبت…" else "ثبت بازپرداخت") }
+            },
+            dismissButton = {
+                TextButton(enabled = !isRefunding, onClick = { refundPaymentId = null }) { Text("انصراف") }
+            }
+        )
     }
     if (showCancelConfirmation) {
         AlertDialog(
@@ -480,7 +780,7 @@ private fun ReturnLinePicker(
     repository: BusinessRepository,
     products: List<com.padnakasht.nativeapp.data.local.ProductEntity>,
     selectedLineId: Long?,
-    onSelect: (Long) -> Unit
+    onSelect: (Long, Long, String) -> Unit
 ) {
     val lines by repository.observeInvoiceLines(invoiceId).collectAsState(initial = emptyList())
     Text("قلم فاکتور را انتخاب کنید", style = MaterialTheme.typography.labelLarge)
@@ -489,8 +789,11 @@ private fun ReturnLinePicker(
     } else {
         lines.forEach { line ->
             val productName = products.firstOrNull { it.id == line.productId }?.name ?: "کالای #${line.productId}"
-            TextButton(onClick = { onSelect(line.id) }, modifier = Modifier.fillMaxWidth()) {
-                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${formatFinancialAmount(line.quantity)} • شناسه قلم: ${formatFinancialAmount(line.id)}")
+            val product = products.firstOrNull { it.id == line.productId }
+            val scale = product?.quantityScale ?: 1L
+            val unit = product?.unitLabel ?: "عدد"
+            TextButton(onClick = { onSelect(line.id, scale, unit) }, modifier = Modifier.fillMaxWidth()) {
+                Text("${if (selectedLineId == line.id) "✓ " else ""}$productName • فروخته‌شده: ${formatScaledQuantity(line.quantity, scale)} $unit • شناسه قلم: ${formatFinancialAmount(line.id)}")
             }
         }
     }
@@ -503,10 +806,21 @@ private fun CustomerBalanceRow(
     phone: String,
     selected: Boolean,
     repository: BusinessRepository,
-    onSelect: () -> Unit
+    isActive: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onAdjustBalance: () -> Unit,
+    onToggleActive: () -> Unit
 ) {
     val balance by repository.observeCustomerBalance(customerId).collectAsState(initial = 0L)
-    TextButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
-        Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatToman(balance)}")
+    Column(Modifier.fillMaxWidth()) {
+        TextButton(onClick = onSelect, enabled = isActive, modifier = Modifier.fillMaxWidth()) {
+            Text("${if (selected) "✓ " else ""}${name} • ${phone} • مانده حساب: ${formatToman(balance)}${if (isActive) "" else " • بایگانی"}")
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onEdit, modifier = Modifier.weight(1f)) { Text("ویرایش") }
+            TextButton(onClick = onAdjustBalance, modifier = Modifier.weight(1f)) { Text("اصلاح حساب") }
+            TextButton(onClick = onToggleActive, modifier = Modifier.weight(1f)) { Text(if (isActive) "بایگانی" else "فعال‌سازی") }
+        }
     }
 }

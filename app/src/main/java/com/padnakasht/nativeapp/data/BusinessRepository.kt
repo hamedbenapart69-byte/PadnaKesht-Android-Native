@@ -2,10 +2,15 @@ package com.padnakasht.nativeapp.data
 
 import com.padnakasht.nativeapp.data.local.BusinessDao
 import com.padnakasht.nativeapp.data.local.CustomerEntity
+import com.padnakasht.nativeapp.data.local.CustomerBalanceAdjustmentEntity
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
+import com.padnakasht.nativeapp.data.local.PaymentRefundEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
+import com.padnakasht.nativeapp.data.local.PurchaseEntity
+import com.padnakasht.nativeapp.data.local.PurchaseLineEntity
+import com.padnakasht.nativeapp.data.local.PurchasePaymentEntity
 import com.padnakasht.nativeapp.data.local.StockMovementEntity
 import com.padnakasht.nativeapp.data.local.SalesReturnEntity
 import kotlinx.coroutines.flow.map
@@ -19,10 +24,93 @@ class BusinessRepository(private val dao: BusinessDao) {
     val allPayments = dao.observeAllPayments()
     val allSalesReturns = dao.observeAllSalesReturns()
     val allRefunds = dao.observeAllRefunds()
+    val purchases = dao.observePurchases()
+    val allPurchasePayments = dao.observeAllPurchasePayments()
+    val allCustomerBalanceAdjustments = dao.observeAllCustomerBalanceAdjustments()
+    val totalCustomerReceivables = dao.observeTotalCustomerReceivables()
 
     suspend fun addCustomer(name: String, phone: String = "", notes: String = ""): Long {
         require(name.isNotBlank()) { "Customer name is required" }
         return dao.insertCustomer(CustomerEntity(name = name.trim(), phone = phone.trim(), notes = notes.trim()))
+    }
+
+    suspend fun updateCustomer(customerId: Long, name: String, phone: String = "", notes: String = ""): Boolean {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(name.isNotBlank()) { "Customer name is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.updateCustomerDetails(customerId, name.trim(), phone.trim(), notes.trim()) == 1
+    }
+
+    suspend fun setCustomerActive(customerId: Long, isActive: Boolean): Boolean {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.setCustomerActive(customerId, isActive) == 1
+    }
+
+    suspend fun adjustCustomerBalance(customerId: Long, amountDeltaMinor: Long, reason: String): Long {
+        require(customerId > 0L) { "Customer ID is required" }
+        require(amountDeltaMinor != 0L) { "Customer balance adjustment cannot be zero" }
+        require(reason.isNotBlank()) { "Customer balance adjustment reason is required" }
+        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        return dao.insertCustomerBalanceAdjustment(
+            CustomerBalanceAdjustmentEntity(
+                customerId = customerId,
+                amountDeltaMinor = amountDeltaMinor,
+                occurredAtEpochDay = LocalDate.now().toEpochDay(),
+                reason = reason.trim()
+            )
+        )
+    }
+
+    fun observePurchaseLines(purchaseId: Long) = dao.observePurchaseLines(purchaseId)
+
+    fun observePurchasePayments(purchaseId: Long) = dao.observePurchasePayments(purchaseId)
+
+    fun observePurchasePaymentsTotal(purchaseId: Long) = dao.observePurchasePaymentsTotal(purchaseId)
+
+    suspend fun createPurchase(
+        supplierName: String,
+        lines: List<PurchaseLineEntity>,
+        initialPaymentMinor: Long = 0L,
+        notes: String = ""
+    ): Long {
+        require(supplierName.isNotBlank()) { "Supplier name is required" }
+        require(lines.isNotEmpty()) { "A purchase must contain at least one line" }
+        require(initialPaymentMinor >= 0L) { "Initial payment cannot be negative" }
+        return dao.postPurchase(
+            PurchaseEntity(
+                supplierName = supplierName.trim(),
+                occurredAtEpochDay = LocalDate.now().toEpochDay(),
+                notes = notes.trim()
+            ),
+            lines,
+            initialPaymentMinor
+        )
+    }
+
+    suspend fun recordPurchasePayment(
+        purchaseId: Long,
+        amountMinor: Long,
+        note: String = "",
+        idempotencyKey: String = java.util.UUID.randomUUID().toString()
+    ): Long {
+        require(purchaseId > 0L) { "Purchase ID is required" }
+        require(amountMinor > 0L) { "Payment must be positive" }
+        return dao.recordPurchasePayment(
+            PurchasePaymentEntity(
+                purchaseId = purchaseId,
+                amountMinor = amountMinor,
+                paidAtEpochDay = LocalDate.now().toEpochDay(),
+                note = note.trim(),
+                idempotencyKey = idempotencyKey
+            )
+        )
+    }
+
+    suspend fun purchaseOutstandingBalance(purchaseId: Long): Long {
+        val purchase = dao.getPurchase(purchaseId) ?: error("Purchase not found")
+        if (purchase.status != "POSTED") return 0L
+        return Math.subtractExact(purchase.totalMinor, dao.getPurchasePaymentsTotal(purchaseId))
     }
 
     suspend fun addProduct(
@@ -31,21 +119,57 @@ class BusinessRepository(private val dao: BusinessDao) {
         stockQuantity: Long,
         unitPriceMinor: Long,
         category: String = "عمومی",
-        lowStockThreshold: Long = 0L
+        lowStockThreshold: Long = 0L,
+        unitLabel: String = "عدد",
+        quantityScale: Long = 1L
     ): Long {
         require(name.isNotBlank()) { "Product name is required" }
         require(sku.isNotBlank()) { "SKU is required" }
         require(stockQuantity >= 0) { "Stock cannot be negative" }
         require(unitPriceMinor >= 0) { "Price cannot be negative" }
         require(lowStockThreshold >= 0) { "Low-stock threshold cannot be negative" }
+        require(unitLabel.isNotBlank()) { "Product unit is required" }
+        require(quantityScale > 0L) { "Product quantity scale must be positive" }
         return dao.insertProduct(ProductEntity(
             name = name.trim(),
             sku = sku.trim(),
             stockQuantity = stockQuantity,
             unitPriceMinor = unitPriceMinor,
             category = category.trim().ifBlank { "عمومی" },
-            lowStockThreshold = lowStockThreshold
+            lowStockThreshold = lowStockThreshold,
+            unitLabel = unitLabel.trim(),
+            quantityScale = quantityScale
         ))
+    }
+
+    suspend fun updateProduct(
+        productId: Long,
+        name: String,
+        sku: String,
+        unitPriceMinor: Long,
+        category: String = "عمومی",
+        lowStockThreshold: Long = 0L
+    ): Boolean {
+        require(productId > 0L) { "Product ID is required" }
+        require(name.isNotBlank()) { "Product name is required" }
+        require(sku.isNotBlank()) { "SKU is required" }
+        require(unitPriceMinor >= 0L) { "Price cannot be negative" }
+        require(lowStockThreshold >= 0L) { "Low-stock threshold cannot be negative" }
+        require(dao.getProduct(productId) != null) { "Product not found" }
+        return dao.updateProductDetails(
+            productId,
+            name.trim(),
+            sku.trim(),
+            unitPriceMinor,
+            category.trim().ifBlank { "عمومی" },
+            lowStockThreshold
+        ) == 1
+    }
+
+    suspend fun setProductActive(productId: Long, isActive: Boolean): Boolean {
+        require(productId > 0L) { "Product ID is required" }
+        require(dao.getProduct(productId) != null) { "Product not found" }
+        return dao.setProductActive(productId, isActive) == 1
     }
 
     suspend fun createInvoice(
@@ -57,7 +181,12 @@ class BusinessRepository(private val dao: BusinessDao) {
         require(customerId > 0) { "Customer is required" }
         require(lines.isNotEmpty()) { "An invoice must contain at least one line" }
         require(discountMinor >= 0L) { "Discount cannot be negative" }
-        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
+        require(customer.isActive) { "Cannot invoice an archived customer" }
+        lines.forEach { line ->
+            val product = requireNotNull(dao.getProduct(line.productId)) { "Product not found" }
+            require(product.isActive) { "Cannot sell an archived product" }
+        }
         return dao.postInvoice(
             InvoiceEntity(
                 customerId = customerId,
@@ -71,10 +200,12 @@ class BusinessRepository(private val dao: BusinessDao) {
 
     suspend fun createSingleProductInvoice(customerId: Long, productId: Long, quantity: Long): Long {
         require(customerId > 0) { "Customer is required" }
-        require(dao.getCustomer(customerId) != null) { "Customer not found" }
+        val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
+        require(customer.isActive) { "Cannot invoice an archived customer" }
         require(quantity > 0) { "Quantity must be positive" }
-        val product = dao.getProduct(productId) ?: error("Product not found")
-        val lineTotal = Math.multiplyExact(product.unitPriceMinor, quantity)
+        val product = requireNotNull(dao.getProduct(productId)) { "Product not found" }
+        require(product.isActive) { "Cannot sell an archived product" }
+        val lineTotal = com.padnakasht.nativeapp.domain.calculateScaledAmount(quantity, product.unitPriceMinor, product.quantityScale)
         return dao.postInvoice(
             InvoiceEntity(customerId = customerId, createdAtEpochDay = LocalDate.now().toEpochDay()),
             listOf(
@@ -83,7 +214,8 @@ class BusinessRepository(private val dao: BusinessDao) {
                     productId = productId,
                     quantity = quantity,
                     unitPriceMinor = product.unitPriceMinor,
-                    lineTotalMinor = lineTotal
+                    lineTotalMinor = lineTotal,
+                    quantityScale = product.quantityScale
                 )
             )
         )
@@ -99,6 +231,28 @@ class BusinessRepository(private val dao: BusinessDao) {
                 idempotencyKey = idempotencyKey
             )
         )
+
+    suspend fun refundPayment(
+        invoiceId: Long,
+        paymentId: Long,
+        amountMinor: Long,
+        reason: String,
+        idempotencyKey: String = java.util.UUID.randomUUID().toString()
+    ): Long {
+        require(invoiceId > 0L && paymentId > 0L) { "Invoice and payment IDs are required" }
+        require(amountMinor > 0L) { "Refund amount must be positive" }
+        require(reason.isNotBlank()) { "Refund reason is required" }
+        return dao.recordRefund(
+            PaymentRefundEntity(
+                invoiceId = invoiceId,
+                paymentId = paymentId,
+                amountMinor = amountMinor,
+                refundedAtEpochDay = LocalDate.now().toEpochDay(),
+                reason = reason.trim(),
+                idempotencyKey = idempotencyKey
+            )
+        )
+    }
 
     suspend fun cancelInvoice(invoiceId: Long): Boolean = dao.cancelInvoice(invoiceId, LocalDate.now().toEpochDay())
 
@@ -124,7 +278,10 @@ class BusinessRepository(private val dao: BusinessDao) {
         val invoice = dao.getInvoice(invoiceId) ?: error("Invoice not found")
         if (invoice.status != "POSTED") return 0L
         return Math.subtractExact(
-            Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)),
+            Math.addExact(
+                Math.subtractExact(invoice.totalMinor, dao.getPaymentsTotal(invoiceId)),
+                dao.getRefundsTotal(invoiceId)
+            ),
             dao.getReturnsTotal(invoiceId)
         )
     }

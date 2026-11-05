@@ -7,6 +7,16 @@ import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
+/** Normalize Persian and Arabic-Indic digits before PIN validation and hashing. */
+internal fun normalizePinDigits(pin: CharArray): CharArray = CharArray(pin.size) { index ->
+    val char = pin[index]
+    when (char) {
+        in '\u06F0'..'\u06F9' -> ('0'.code + char.code - 0x06F0).toChar()
+        in '\u0660'..'\u0669' -> ('0'.code + char.code - 0x0660).toChar()
+        else -> char
+    }
+}
+
 /** PIN verifier only: the PIN itself is never persisted. */
 class PinAuthStore(context: Context) {
     private val prefs = context.getSharedPreferences("local_pin_verifier", Context.MODE_PRIVATE)
@@ -15,46 +25,68 @@ class PinAuthStore(context: Context) {
 
     @Synchronized
     fun configure(pin: CharArray, confirmation: CharArray): Boolean {
-        if (!validPin(pin) || !pin.contentEquals(confirmation)) {
-            pin.fill('\u0000')
-            confirmation.fill('\u0000')
+        val normalizedPin = normalizePinDigits(pin)
+        val normalizedConfirmation = normalizePinDigits(confirmation)
+        pin.fill('\u0000')
+        confirmation.fill('\u0000')
+        if (!validPin(normalizedPin) || !normalizedPin.contentEquals(normalizedConfirmation)) {
+            normalizedPin.fill('\u0000')
+            normalizedConfirmation.fill('\u0000')
             return false
         }
         val salt = ByteArray(SALT_BYTES).also { SecureRandom().nextBytes(it) }
-        val hash = derive(pin, salt)
+        val hash = try {
+            derive(normalizedPin, salt)
+        } finally {
+            normalizedPin.fill('\u0000')
+            normalizedConfirmation.fill('\u0000')
+        }
         val saved = prefs.edit()
             .putString(SALT_KEY, Base64.encodeToString(salt, Base64.NO_WRAP))
             .putString(HASH_KEY, Base64.encodeToString(hash, Base64.NO_WRAP))
             .remove(FAILURE_COUNT_KEY)
             .remove(LOCKED_UNTIL_KEY)
             .commit()
-        pin.fill('\u0000')
-        confirmation.fill('\u0000')
+        hash.fill(0)
         return saved
     }
 
     @Synchronized
     fun verify(pin: CharArray): Boolean {
+        val normalizedPin = normalizePinDigits(pin)
+        pin.fill('\u0000')
         val now = System.currentTimeMillis()
         if (prefs.getLong(LOCKED_UNTIL_KEY, 0L) > now) {
-            pin.fill('\u0000')
+            normalizedPin.fill('\u0000')
             return false
         }
-        if (!validPin(pin)) {
-            pin.fill('\u0000')
+        if (!validPin(normalizedPin)) {
+            normalizedPin.fill('\u0000')
             recordFailure(now)
             return false
         }
         val encodedSalt = prefs.getString(SALT_KEY, null)
         val encodedHash = prefs.getString(HASH_KEY, null)
         if (encodedSalt == null || encodedHash == null) {
-            pin.fill('\u0000')
+            normalizedPin.fill('\u0000')
             return false
         }
-        val expected = Base64.decode(encodedHash, Base64.NO_WRAP)
-        val actual = derive(pin, Base64.decode(encodedSalt, Base64.NO_WRAP))
-        pin.fill('\u0000')
-        val matched = MessageDigest.isEqual(expected, actual)
+        val matched = try {
+            val expected = Base64.decode(encodedHash, Base64.NO_WRAP)
+            val salt = Base64.decode(encodedSalt, Base64.NO_WRAP)
+            val actual = derive(normalizedPin, salt)
+            try {
+                MessageDigest.isEqual(expected, actual)
+            } finally {
+                expected.fill(0)
+                salt.fill(0)
+                actual.fill(0)
+            }
+        } catch (_: IllegalArgumentException) {
+            false
+        } finally {
+            normalizedPin.fill('\u0000')
+        }
         if (matched) {
             prefs.edit().remove(FAILURE_COUNT_KEY).remove(LOCKED_UNTIL_KEY).commit()
         } else {
@@ -64,7 +96,7 @@ class PinAuthStore(context: Context) {
     }
 
     private fun recordFailure(now: Long) {
-        val failures = prefs.getInt(FAILURE_COUNT_KEY, 0) + 1
+        val failures = (prefs.getInt(FAILURE_COUNT_KEY, 0).coerceAtLeast(0) + 1).coerceAtMost(10)
         val lockoutMillis = if (failures < 5) 0L else
             (30_000L * (1L shl (failures - 5).coerceAtMost(5))).coerceAtMost(15 * 60_000L)
         prefs.edit()
