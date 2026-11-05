@@ -144,9 +144,9 @@ class OfflineAppSmokeTest {
         awaitVisibleByScrolling("ثبت سریع تراکنش")
         capture("quick-transaction")
 
-        composeRule.onNodeWithText("فروش و انبار").performScrollTo()
+        // Primary navigation remains visible while the content list scrolls.
         composeRule.onNodeWithText("فروش و انبار").performClick()
-        awaitDisplayed("فروش، مشتریان و کالاها")
+        awaitVisibleByScrolling("فروش، مشتریان و کالاها")
         composeRule.onNodeWithText("نام مشتری").performTextInput("مشتری آزمایشی")
         hideKeyboard()
         composeRule.onNodeWithTag("register-customer").performScrollTo()
@@ -178,7 +178,8 @@ class OfflineAppSmokeTest {
         awaitDisplayed("صدور فاکتور")
         composeRule.onNodeWithTag("select-invoice-customer").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-customer").performClick()
-        composeRule.onNodeWithText("مشتری آزمایشی").performClick()
+        awaitDisplayed("مشتری آزمایشی")
+        composeRule.onNodeWithTag("invoice-customer-1").performClick()
         composeRule.onNodeWithTag("select-invoice-product").performScrollTo()
         composeRule.onNodeWithTag("select-invoice-product").performClick()
         composeRule.onNodeWithText("محصول آزمایشی", substring = true).performClick()
