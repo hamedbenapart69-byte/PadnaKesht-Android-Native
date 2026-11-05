@@ -48,13 +48,17 @@ data class ProductEntity(
     val unitPriceMinor: Long,
     @ColumnInfo(defaultValue = "'عمومی'") val category: String = "عمومی",
     @ColumnInfo(defaultValue = "0") val lowStockThreshold: Long = 0,
-    @ColumnInfo(defaultValue = "1") val isActive: Boolean = true
+    @ColumnInfo(defaultValue = "1") val isActive: Boolean = true,
+    @ColumnInfo(defaultValue = "'عدد'") val unitLabel: String = "عدد",
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
 ) {
     init {
         require(name.isNotBlank())
         require(stockQuantity >= 0)
         require(unitPriceMinor >= 0)
         require(lowStockThreshold >= 0)
+        require(unitLabel.isNotBlank())
+        require(quantityScale > 0L)
     }
 }
 
@@ -118,12 +122,14 @@ data class InvoiceLineEntity(
     val productId: Long,
     val quantity: Long,
     val unitPriceMinor: Long,
-    val lineTotalMinor: Long
+    val lineTotalMinor: Long,
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
 ) {
     init {
         require(quantity > 0)
         require(unitPriceMinor >= 0)
         require(lineTotalMinor >= 0)
+        require(quantityScale > 0L)
     }
 }
 
@@ -207,12 +213,14 @@ data class PurchaseLineEntity(
     val productId: Long,
     val quantity: Long,
     val unitCostMinor: Long,
-    val lineTotalMinor: Long
+    val lineTotalMinor: Long,
+    @ColumnInfo(defaultValue = "1") val quantityScale: Long = 1L
 ) {
     init {
         require(quantity > 0L)
         require(unitCostMinor >= 0L)
         require(lineTotalMinor >= 0L)
+        require(quantityScale > 0L)
     }
 }
 
