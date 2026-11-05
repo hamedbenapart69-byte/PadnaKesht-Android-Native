@@ -7,6 +7,9 @@ import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
+import com.padnakasht.nativeapp.data.local.PurchaseEntity
+import com.padnakasht.nativeapp.data.local.PurchaseLineEntity
+import com.padnakasht.nativeapp.data.local.PurchasePaymentEntity
 import com.padnakasht.nativeapp.data.local.StockMovementEntity
 import com.padnakasht.nativeapp.data.local.SalesReturnEntity
 import kotlinx.coroutines.flow.map
@@ -20,6 +23,8 @@ class BusinessRepository(private val dao: BusinessDao) {
     val allPayments = dao.observeAllPayments()
     val allSalesReturns = dao.observeAllSalesReturns()
     val allRefunds = dao.observeAllRefunds()
+    val purchases = dao.observePurchases()
+    val allPurchasePayments = dao.observeAllPurchasePayments()
 
     suspend fun addCustomer(name: String, phone: String = "", notes: String = ""): Long {
         require(name.isNotBlank()) { "Customer name is required" }
@@ -52,6 +57,57 @@ class BusinessRepository(private val dao: BusinessDao) {
                 reason = reason.trim()
             )
         )
+    }
+
+    fun observePurchaseLines(purchaseId: Long) = dao.observePurchaseLines(purchaseId)
+
+    fun observePurchasePayments(purchaseId: Long) = dao.observePurchasePayments(purchaseId)
+
+    fun observePurchasePaymentsTotal(purchaseId: Long) = dao.observePurchasePaymentsTotal(purchaseId)
+
+    suspend fun createPurchase(
+        supplierName: String,
+        lines: List<PurchaseLineEntity>,
+        initialPaymentMinor: Long = 0L,
+        notes: String = ""
+    ): Long {
+        require(supplierName.isNotBlank()) { "Supplier name is required" }
+        require(lines.isNotEmpty()) { "A purchase must contain at least one line" }
+        require(initialPaymentMinor >= 0L) { "Initial payment cannot be negative" }
+        return dao.postPurchase(
+            PurchaseEntity(
+                supplierName = supplierName.trim(),
+                occurredAtEpochDay = LocalDate.now().toEpochDay(),
+                notes = notes.trim()
+            ),
+            lines,
+            initialPaymentMinor
+        )
+    }
+
+    suspend fun recordPurchasePayment(
+        purchaseId: Long,
+        amountMinor: Long,
+        note: String = "",
+        idempotencyKey: String = java.util.UUID.randomUUID().toString()
+    ): Long {
+        require(purchaseId > 0L) { "Purchase ID is required" }
+        require(amountMinor > 0L) { "Payment must be positive" }
+        return dao.recordPurchasePayment(
+            PurchasePaymentEntity(
+                purchaseId = purchaseId,
+                amountMinor = amountMinor,
+                paidAtEpochDay = LocalDate.now().toEpochDay(),
+                note = note.trim(),
+                idempotencyKey = idempotencyKey
+            )
+        )
+    }
+
+    suspend fun purchaseOutstandingBalance(purchaseId: Long): Long {
+        val purchase = dao.getPurchase(purchaseId) ?: error("Purchase not found")
+        if (purchase.status != "POSTED") return 0L
+        return Math.subtractExact(purchase.totalMinor, dao.getPurchasePaymentsTotal(purchaseId))
     }
 
     suspend fun addProduct(
