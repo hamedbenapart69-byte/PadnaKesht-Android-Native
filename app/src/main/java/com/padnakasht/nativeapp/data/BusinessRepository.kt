@@ -6,6 +6,7 @@ import com.padnakasht.nativeapp.data.local.CustomerBalanceAdjustmentEntity
 import com.padnakasht.nativeapp.data.local.InvoiceEntity
 import com.padnakasht.nativeapp.data.local.InvoiceLineEntity
 import com.padnakasht.nativeapp.data.local.PaymentEntity
+import com.padnakasht.nativeapp.data.local.PaymentRefundEntity
 import com.padnakasht.nativeapp.data.local.ProductEntity
 import com.padnakasht.nativeapp.data.local.PurchaseEntity
 import com.padnakasht.nativeapp.data.local.PurchaseLineEntity
