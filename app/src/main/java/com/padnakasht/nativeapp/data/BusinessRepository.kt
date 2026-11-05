@@ -86,7 +86,7 @@ class BusinessRepository(private val dao: BusinessDao) {
         require(customerId > 0) { "Customer is required" }
         require(lines.isNotEmpty()) { "An invoice must contain at least one line" }
         require(discountMinor >= 0L) { "Discount cannot be negative" }
-        val customer = dao.getCustomer(customerId) ?: error("Customer not found")
+        val customer = requireNotNull(dao.getCustomer(customerId)) { "Customer not found" }
         require(customer.isActive) { "Cannot invoice an archived customer" }
         return dao.postInvoice(
             InvoiceEntity(
