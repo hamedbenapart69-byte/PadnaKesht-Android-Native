@@ -24,9 +24,10 @@ internal object DebtReminderNotificationText {
     fun body(customerCount: Int, amountMinor: Long): String {
         require(customerCount >= 0)
         require(amountMinor >= 0L)
-        val toman = amountMinor / 10L
-        val formatted = NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(toman)
-        return "$customerCount مشتری • $formatted تومان"
+        val numbers = NumberFormat.getIntegerInstance(Locale("fa", "IR"))
+        val customers = numbers.format(customerCount)
+        val formatted = numbers.format(amountMinor)
+        return "$customers مشتری • $formatted تومان"
     }
 }
 
@@ -36,6 +37,7 @@ class OverdueDebtReminderWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        if (!DebtReminderScheduler.isEnabled(applicationContext)) return Result.success()
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return Result.success()
