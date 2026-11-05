@@ -28,6 +28,34 @@ class BusinessRepositoryInvariantTest {
     }
 
     @Test
+    fun reopenedReceivableCanAcceptAnotherPaymentAfterPartialRefund() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-receive-after-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "مشتری دریافت پس از بازپرداخت"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای دریافت", sku = "RECEIVE-AFTER-REFUND", stockQuantity = 2, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val originalPaymentId = repository.receivePayment(invoiceId, 1_000, "تسویه اولیه")
+            repository.refundPayment(invoiceId, originalPaymentId, 300, "بازگشایی بدهی", "reopen-receivable-refund")
+
+            val nextPaymentId = repository.receivePayment(invoiceId, 300, "تسویه مجدد", "collect-after-refund")
+
+            assertTrue(nextPaymentId > 0L)
+            assertEquals(1_300L, dao.getPaymentsTotal(invoiceId))
+            assertEquals(300L, dao.getRefundsTotal(invoiceId))
+            assertEquals(0L, repository.outstandingBalance(invoiceId))
+            assertEquals(0L, dao.observeCustomerBalance(customerId).first())
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-receive-after-refund-test.db").delete()
+        }
+    }
+
+    @Test
     fun singleProductInvoiceRejectsUnknownCustomerWithoutChangingStock() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = database(context, "repository-invalid-customer-test.db")
