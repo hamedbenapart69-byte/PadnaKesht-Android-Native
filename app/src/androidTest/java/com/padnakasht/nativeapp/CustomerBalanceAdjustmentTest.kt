@@ -148,4 +148,32 @@ class CustomerBalanceAdjustmentTest {
             context.getDatabasePath("customer-zero-adjustment-test.db").delete()
         }
     }
+    @Test
+    fun totalReceivablesIncludeOpeningBalancesWithoutNettingCustomerCredits() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "customer-total-receivables-test.db")
+        try {
+            val dao = db.businessDao()
+            val debtorId = dao.insertCustomer(CustomerEntity(name = "مشتری بدهکار"))
+            val creditId = dao.insertCustomer(CustomerEntity(name = "مشتری بستانکار"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای مانده", sku = "CUSTOMER-TOTAL-RECEIVABLES", stockQuantity = 5, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            repository.createSingleProductInvoice(debtorId, productId, 1)
+            repository.adjustCustomerBalance(debtorId, 100L, "مانده افتتاحیه")
+            repository.createSingleProductInvoice(creditId, productId, 1)
+            repository.adjustCustomerBalance(creditId, -1_500L, "اعتبار قبلی")
+
+            assertEquals(1_100L, dao.observeTotalCustomerReceivables().first())
+            assertEquals(2, repository.allCustomerBalanceAdjustments.first().size)
+
+            repository.receivePayment(dao.observeInvoices().first().first { it.customerId == debtorId }.id, 200L, "دریافت")
+            assertEquals(900L, dao.observeTotalCustomerReceivables().first())
+        } finally {
+            db.close()
+            context.getDatabasePath("customer-total-receivables-test.db").delete()
+        }
+    }
+
 }
