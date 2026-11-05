@@ -195,4 +195,29 @@ class BusinessRepositoryInvariantTest {
         }
     }
 
+    @Test
+    fun paymentIdempotencyNormalizesWhitespaceBeforePersisting() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-payment-idempotency-whitespace-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "مشتری کلید پرداخت"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "کالای کلید پرداخت", sku = "PAYMENT-KEY-WHITESPACE", stockQuantity = 2, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+
+            val first = repository.receivePayment(invoiceId, 100, "رسید", "  stable-payment-key  ")
+            val repeated = repository.receivePayment(invoiceId, 100, "رسید", "stable-payment-key")
+
+            assertEquals(first, repeated)
+            assertEquals(100L, dao.getPaymentsTotal(invoiceId))
+            assertEquals("stable-payment-key", dao.observePayments(invoiceId).first().single().idempotencyKey)
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-payment-idempotency-whitespace-test.db").delete()
+        }
+    }
+
 }
