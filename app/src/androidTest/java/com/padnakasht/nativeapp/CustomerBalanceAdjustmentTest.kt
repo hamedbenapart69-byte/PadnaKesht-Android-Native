@@ -104,6 +104,10 @@ class CustomerBalanceAdjustmentTest {
             sql.execSQL("DROP TABLE customer_balance_adjustments")
             sql.execSQL("ALTER TABLE customers DROP COLUMN isActive")
             sql.execSQL("ALTER TABLE products DROP COLUMN isActive")
+            sql.execSQL("ALTER TABLE products DROP COLUMN unitLabel")
+            sql.execSQL("ALTER TABLE products DROP COLUMN quantityScale")
+            sql.execSQL("ALTER TABLE invoice_lines DROP COLUMN quantityScale")
+            sql.execSQL("ALTER TABLE purchase_lines DROP COLUMN quantityScale")
             sql.version = 9
         } finally {
             original.close()
