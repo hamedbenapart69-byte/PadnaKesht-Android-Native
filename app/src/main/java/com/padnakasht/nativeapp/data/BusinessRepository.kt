@@ -26,6 +26,8 @@ class BusinessRepository(private val dao: BusinessDao) {
     val allRefunds = dao.observeAllRefunds()
     val purchases = dao.observePurchases()
     val allPurchasePayments = dao.observeAllPurchasePayments()
+    val allCustomerBalanceAdjustments = dao.observeAllCustomerBalanceAdjustments()
+    val totalCustomerReceivables = dao.observeTotalCustomerReceivables()
 
     suspend fun addCustomer(name: String, phone: String = "", notes: String = ""): Long {
         require(name.isNotBlank()) { "Customer name is required" }
