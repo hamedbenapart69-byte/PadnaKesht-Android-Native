@@ -104,4 +104,41 @@ class BusinessRepositoryInvariantTest {
         }
     }
 
+    @Test
+    fun partialRefundIsIdempotentAndReopensCustomerReceivable() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = database(context, "repository-partial-refund-test.db")
+        try {
+            val dao = db.businessDao()
+            val customerId = dao.insertCustomer(CustomerEntity(name = "Refund customer"))
+            val productId = dao.insertProduct(
+                ProductEntity(name = "Refund product", sku = "INV-PARTIAL-REFUND", stockQuantity = 5, unitPriceMinor = 1_000)
+            )
+            val repository = BusinessRepository(dao)
+            val invoiceId = repository.createSingleProductInvoice(customerId, productId, 1)
+            val paymentId = repository.receivePayment(invoiceId, 300, "partial receipt")
+            val key = "partial-refund-idempotency-test"
+
+            val refundId = repository.refundPayment(invoiceId, paymentId, 100, "customer refund", key)
+            val repeatedRefundId = repository.refundPayment(invoiceId, paymentId, 100, "customer refund", key)
+
+            assertEquals(refundId, repeatedRefundId)
+            assertEquals(100L, dao.getRefundsTotal(invoiceId))
+            assertEquals(800L, repository.outstandingBalance(invoiceId))
+            assertEquals(800L, dao.observeCustomerBalance(customerId).first())
+
+            var excessiveRefundRejected = false
+            try {
+                repository.refundPayment(invoiceId, paymentId, 201, "too much refund", "excessive-refund-test")
+            } catch (_: IllegalArgumentException) {
+                excessiveRefundRejected = true
+            }
+            assertTrue("Refund cannot exceed the unrefunded part of a receipt", excessiveRefundRejected)
+            assertEquals(100L, dao.getRefundsTotal(invoiceId))
+        } finally {
+            db.close()
+            context.getDatabasePath("repository-partial-refund-test.db").delete()
+        }
+    }
+
 }
