@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     entities = [
         TransactionEntity::class,
         CustomerEntity::class,
+        CustomerBalanceAdjustmentEntity::class,
         ProductEntity::class,
         InvoiceEntity::class,
         InvoiceLineEntity::class,
@@ -17,7 +18,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         StockMovementEntity::class,
         SalesReturnEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +26,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
 
     companion object {
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE customers ADD COLUMN isActive INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("CREATE TABLE IF NOT EXISTS customer_balance_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, customerId INTEGER NOT NULL, amountDeltaMinor INTEGER NOT NULL, occurredAtEpochDay INTEGER NOT NULL, reason TEXT NOT NULL, FOREIGN KEY(customerId) REFERENCES customers(id) ON UPDATE NO ACTION ON DELETE RESTRICT)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_balance_adjustments_customerId ON customer_balance_adjustments(customerId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_balance_adjustments_occurredAtEpochDay ON customer_balance_adjustments(occurredAtEpochDay)")
+            }
+        }
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
