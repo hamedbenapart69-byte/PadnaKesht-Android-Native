@@ -53,6 +53,31 @@ abstract class BusinessDao {
     """)
     abstract fun observeCustomerBalance(customerId: Long): Flow<Long>
 
+    @Query("""
+        SELECT COALESCE(SUM(CASE WHEN customer_balance > 0 THEN customer_balance ELSE 0 END), 0)
+        FROM (
+            SELECT customers.id AS customer_id,
+                COALESCE((
+                    SELECT SUM(
+                        CASE WHEN invoices.status = 'POSTED' THEN
+                            invoices.totalMinor
+                            - (SELECT COALESCE(SUM(payments.amountMinor), 0) FROM payments WHERE payments.invoiceId = invoices.id)
+                            - (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0) FROM sales_returns WHERE sales_returns.invoiceId = invoices.id)
+                            + (SELECT COALESCE(SUM(payment_refunds.amountMinor), 0) FROM payment_refunds WHERE payment_refunds.invoiceId = invoices.id)
+                        ELSE 0 END
+                    )
+                    FROM invoices WHERE invoices.customerId = customers.id
+                ), 0)
+                + COALESCE((SELECT SUM(amountDeltaMinor) FROM customer_balance_adjustments WHERE customerId = customers.id), 0)
+                AS customer_balance
+            FROM customers
+        )
+    """)
+    abstract fun observeTotalCustomerReceivables(): Flow<Long>
+
+    @Query("SELECT * FROM customer_balance_adjustments ORDER BY occurredAtEpochDay, id")
+    abstract fun observeAllCustomerBalanceAdjustments(): Flow<List<CustomerBalanceAdjustmentEntity>>
+
     @Query("SELECT * FROM products ORDER BY name COLLATE NOCASE")
     abstract fun observeProducts(): Flow<List<ProductEntity>>
 
