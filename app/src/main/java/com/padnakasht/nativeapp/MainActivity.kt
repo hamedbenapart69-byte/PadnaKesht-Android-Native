@@ -58,6 +58,7 @@ import com.padnakasht.nativeapp.data.local.AppDatabase
 import com.padnakasht.nativeapp.data.local.AppDatabaseFactory
 import com.padnakasht.nativeapp.security.DatabasePassphraseProvider
 import com.padnakasht.nativeapp.ui.PinGate
+import com.padnakasht.nativeapp.ui.DebtReminderSettings
 import com.padnakasht.nativeapp.ui.BusinessManagement
 import com.padnakasht.nativeapp.ui.FinancialCharts
 import com.padnakasht.nativeapp.ui.formatFinancialAmount
@@ -577,6 +578,7 @@ class MainActivity : FragmentActivity() {
                             item { BusinessManagement(businessRepository) }
                         } else {
                             item { SectionHeading("گزارش و تحلیل", "نمایش جداگانهٔ دفتر مالی عمومی و فروش فاکتوری") }
+                            item { DebtReminderSettings() }
                             item {
                                 GlassPanel(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
