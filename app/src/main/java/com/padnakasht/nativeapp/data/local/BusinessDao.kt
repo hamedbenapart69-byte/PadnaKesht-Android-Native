@@ -8,11 +8,30 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.math.RoundingMode
+import com.padnakasht.nativeapp.domain.OverdueInvoiceCandidate
 
 @Dao
 abstract class BusinessDao {
     @Query("SELECT * FROM invoices ORDER BY createdAtEpochDay DESC, id DESC")
     abstract fun observeInvoices(): Flow<List<InvoiceEntity>>
+
+    @Query("""
+        SELECT
+            invoices.customerId AS customerId,
+            COALESCE(invoices.dueAtEpochDay, invoices.createdAtEpochDay) AS dueEpochDay,
+            invoices.totalMinor AS invoiceTotalMinor,
+            (SELECT COALESCE(SUM(sales_returns.creditAmountMinor), 0)
+                FROM sales_returns WHERE sales_returns.invoiceId = invoices.id) AS returnCreditsMinor,
+            (SELECT COALESCE(SUM(payments.amountMinor), 0)
+                FROM payments WHERE payments.invoiceId = invoices.id) AS receiptsMinor,
+            (SELECT COALESCE(SUM(payment_refunds.amountMinor), 0)
+                FROM payment_refunds WHERE payment_refunds.invoiceId = invoices.id) AS refundsMinor,
+            invoices.status AS status
+        FROM invoices
+        WHERE COALESCE(invoices.dueAtEpochDay, invoices.createdAtEpochDay) < :cutoffEpochDay
+        ORDER BY dueEpochDay ASC, invoices.id ASC
+    """)
+    abstract suspend fun getOverdueInvoiceCandidates(cutoffEpochDay: Long): List<OverdueInvoiceCandidate>
 
     @Query("SELECT * FROM customers ORDER BY name COLLATE NOCASE")
     abstract fun observeCustomers(): Flow<List<CustomerEntity>>
